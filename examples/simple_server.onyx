@@ -1,0 +1,21 @@
+#load "core/std"
+
+#load_path "./lib"
+#load "./module"
+
+main :: () {
+    app := http.application();
+
+    app->get("/test", (req, res) => {
+        foo();
+        res->write("Working!");
+    });
+
+    app->serve(8080);
+}
+
+foo :: () {
+    core.println("doing some mathz...");
+}
+
+HTTP_EXAMPLE :: true

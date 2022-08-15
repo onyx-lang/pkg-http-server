@@ -1,0 +1,96 @@
+package http
+
+Application :: struct {
+    master_router: Router;
+
+    get :: application_macro_get;
+    
+    serve :: application_serve;
+}
+
+Router :: struct {
+    routes: [..] Route;
+
+    // Prepended to every route
+    base_path := "";
+}
+
+HTTP_Handler :: #type (^Request, ^Response) -> void;
+
+HTTP_Method :: enum {
+    GET; HEAD; POST; PUT; DELETE; CONNECT; OPTIONS; TRACE; PATCH;
+}
+
+Route :: struct {
+    method: HTTP_Method;
+    pattern: Route_Pattern;
+    handler: HTTP_Handler;
+}
+
+Route_Pattern :: struct {
+    @Temporary
+    route: str;
+}
+
+Request :: struct {
+}
+
+Response :: struct {
+    write :: (use this: ^Response, data: [] u8) {
+        core.printf("Writing: {}\n", data);
+    }
+}
+
+
+application :: () -> Application {
+    app: Application;
+
+    app.master_router = router();
+
+    return app;
+}
+
+application_serve :: (app: ^Application, port: u32) {
+    core.printf("Serving on port {}\n", port);
+
+    app.master_router.routes[0].handler(null, null);
+}
+
+#local application_macro_get :: macro (app: ^Application, route: str, handler: HTTP_Handler) {
+    router_route :: router_route
+    router_route(^app.master_router, .GET, route, handler);
+}
+
+router :: (base_path := "") -> Router {
+    r: Router;
+
+    r.base_path = base_path;
+    r.routes    = make([..] Route, allocator=long_term_allocator);
+    
+    return r;
+}
+
+router_route :: (router: ^Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
+    router.routes << .{ 
+        method = method,
+        pattern = .{ route },
+        handler = handle
+    };
+}
+
+
+@Relocate
+#local {
+    // The http-server library uses a single allocator across all uses,
+    // even if multiple applications are use (for some reason).
+
+    long_term_allocator: Allocator;
+    short_term_allocator: Allocator;
+    short_term_arena: core.alloc.arena.ArenaState;
+
+    prepare_allocators :: #init () {
+        long_term_allocator = context.allocator;
+        short_term_arena = core.alloc.arena.make(long_term_allocator, 1 * 1024 * 1024); 
+        short_term_allocator = core.alloc.arena.make_allocator(^short_term_arena);
+    }
+}

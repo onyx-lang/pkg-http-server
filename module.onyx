@@ -1,0 +1,13 @@
+package http
+
+#package {
+    io :: core.io
+}
+
+#load_all "./src"
+
+#if #defined(main.HTTP_EXAMPLE) {
+    #load "json/module"
+} else {
+    #load "./../json/module"
+}
