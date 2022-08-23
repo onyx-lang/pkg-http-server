@@ -6,16 +6,27 @@
 main :: () {
     app := http.application();
 
-    app->get("/test", (req, res) => {
-        foo();
-        res->write("Working!");
+    router := http.router();
+
+    router->get("/test", (req, res) => {
+        v := req->get_query_param(i32, "val");
+        name := req->get_query_param(str, "name");
+        res.status_code = 200;
+
+        for req.cookies.entries {
+            core.printf("{}: {}\n", it.key, it.value);
+        }
+
+        res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
     });
 
-    app->serve(8080);
-}
+    router->get("/redirectme", (req, res) => {
+        res->redirect("/test");
+    });
 
-foo :: () {
-    core.println("doing some mathz...");
+    app->pipe(^router);
+
+    app->serve(8081);
 }
 
 HTTP_EXAMPLE :: true

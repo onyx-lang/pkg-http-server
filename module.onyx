@@ -1,13 +1,22 @@
 package http
 
 #package {
-    io :: core.io
+    string :: core.string
+    io     :: core.io
+    arena  :: core.alloc.arena
+    iter   :: core.iter
+    conv   :: core.conv
+
+    net    :: core.net
 }
 
 #load_all "./src"
 
 #if #defined(main.HTTP_EXAMPLE) {
+    // The example files included in this package
+    // need to include the other required files differently.
     #load "json/module"
+
 } else {
     #load "./../json/module"
 }

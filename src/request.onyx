@@ -1,0 +1,137 @@
+package http
+
+Request :: struct {
+    method: HTTP_Method;
+    endpoint: str;
+
+    headers: Map(str, str);
+    query:   Map(str, str);
+    cookies: Map(str, str);
+
+    body: str;
+
+    get_query_param :: get_query_param
+}
+
+#local
+get_query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
+    if !req.query->has(param) {
+        return default;
+    }
+
+    // Strings are handled differently because 
+    // conv.parse_any expects the string ot be
+    // enclosed in quotes, but strings passed
+    // as parameters will not be enclosed in
+    // quotes.
+
+    @Cleanup
+    // This uses type punning to escape the fact that
+    // you have to return the correct type here. This
+    // does not affect the runtime at all. Currently,
+    // #if does not work with compile time parameters
+    // which is why this is necessary.
+    if type == str {
+        return *cast(^type) ^req.query[param];
+    }
+
+    v: type;
+    if core.conv.parse_any(^v, req.query[param]) {
+        return v;
+    }
+
+    return default;
+}
+
+#package
+request_free :: (req: ^Request) {
+    for^ req.headers.entries {
+        delete(^it.key);
+        delete(^it.value);
+    }
+
+    delete(^req.endpoint);
+    delete(^req.body);
+    delete(^req.headers);
+    delete(^req.query);
+}
+
+#package
+parse_request_from_string :: (req: ^Request, s: str) {
+    stream := io.string_stream_make(s);
+    r := io.reader_make(^stream);
+    defer io.reader_free(^r);
+
+    @ErrorHandling
+    {
+        request_line := r->read_line(inplace=true);
+
+        method := string.read_until(^request_line, #char " ");
+        string.advance(^request_line);
+
+        req.method = .UNKNOWN;
+        for runtime.info.enum_values(HTTP_Method) {
+            if it.name == method {
+                req.method = ~~ it.value;
+                break;
+            }
+        }
+
+        route := string.read_until(^request_line, #char " ") |> string.alloc_copy();
+        string.advance(^request_line);
+
+        req.endpoint = string.read_until(^route, #char "?") |> string.alloc_copy();
+
+        @ErrorHandling
+        while !string.is_empty(route) {
+            string.advance(^route);
+
+            key   := string.read_until(^route, #char "=") |> urldecode();
+            string.advance(^route);
+            value := string.read_until(^route, #char "&") |> urldecode();
+
+            req.query[key] = value;
+        }
+    }
+
+    while true {
+        line := r->read_line(inplace=true);
+        if line == "\r\n" do break;
+
+        header := string.read_until(^line, #char ":")
+               |> string.alloc_copy();
+        string.advance(^line, 2);
+
+        value := line
+              |> string.trim_end(#char "\n")
+              |> string.trim_end(#char "\r")
+              |> string.alloc_copy();
+
+        if header == "Cookie" {
+            // Parse cookies
+            while true {
+                pair := string.read_until(^value, "; ");
+                if pair.count == 0 do break;
+
+                k    := string.read_until(^pair, #char "=");
+                string.advance(^pair);
+                v    := pair;
+
+                req.cookies[k] = v;
+
+                string.advance(^value, 2);
+            }
+
+            continue;
+        }
+
+        req.headers[header] = value;
+    }
+
+    r->read_line(inplace=true);
+
+    req.body = r->read_all();
+}
+
+
+

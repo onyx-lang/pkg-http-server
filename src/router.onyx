@@ -1,0 +1,69 @@
+package http
+
+Router :: struct {
+    routes: [..] Route;
+
+    // Prepended to every route
+    base_path := "";
+
+
+    route         :: router_add_route
+    get           :: #solidify router_add_route {method=HTTP_Method.GET}
+
+    route_request :: router_route_request
+}
+
+Route :: struct {
+    method:  HTTP_Method;
+    pattern: Route_Pattern;
+    handler: HTTP_Handler;
+}
+
+Route_Pattern :: struct {
+    @Temporary
+    route: str;
+}
+
+router :: (base_path := "") -> Router {
+    r: Router;
+
+    r.base_path = base_path;
+    r.routes    = make([..] Route, allocator=long_term_allocator);
+    
+    return r;
+}
+
+#package
+router_add_route :: (router: ^Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) {
+    router.routes << .{ 
+        method = method,
+        pattern = .{ route },
+        handler = handle
+    };
+}
+
+#package
+router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
+    if !string.starts_with(req.endpoint, router.base_path) {
+        return;
+    }
+
+    endpoint := req.endpoint[router.base_path.count .. req.endpoint.count];
+
+    for^ router.routes {
+        if it.method == req.method && it.pattern.route == endpoint {
+            it.handler(req, res);
+            return;
+        }
+    }
+}
+
+
+#match convert_to_pipeline (r: ^Router) -> Pipeline_Step {
+    handler :: (r: ^Router, req: ^Request, res: ^Response) -> Pipeline_Action {
+        router_route_request(r, req, res);
+        return (.Finish) if res.completed else .Proceed;
+    }
+
+    return .{ handler, r };
+}

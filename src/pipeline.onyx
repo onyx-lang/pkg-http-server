@@ -1,0 +1,58 @@
+package http
+
+Pipeline :: struct {
+    steps: [..] Pipeline_Step;
+
+    free    :: pipeline_free
+    add     :: pipeline_add_step
+    process :: pipeline_process
+}
+
+Pipeline_Step :: struct {
+    handler: (data: rawptr, req: ^Request, res: ^Response) -> Pipeline_Action;
+    data: rawptr;
+}
+
+Pipeline_Action :: enum {
+    Proceed;
+    Finish;
+}
+
+pipeline :: (allocator := context.allocator) -> Pipeline {
+    p: Pipeline;
+    p.steps = make(typeof p.steps, allocator=allocator);
+    return p;
+}
+
+#package
+pipeline_free :: (p: ^Pipeline) {
+    delete(^p.steps);
+}
+
+#package
+pipeline_add_step :: (p: ^Pipeline, s: $T) where Pipeable(T) {
+    step := convert_to_pipeline(s);
+    p.steps << step;
+}
+
+#package
+pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) -> Pipeline_Action {
+    for p.steps {
+        if it.handler(it.data, req, res) == .Finish {
+            return .Finish;
+        }
+    }
+
+    return .Proceed;
+}
+
+
+convert_to_pipeline :: #match {}
+Pipeable :: interface (T as t) {
+    { convert_to_pipeline(t) } -> Pipeline_Step;
+}
+
+
+#match convert_to_pipeline macro (p: ^Pipeline) -> Pipeline_Step {
+    return .{ pipeline_process, p };
+}

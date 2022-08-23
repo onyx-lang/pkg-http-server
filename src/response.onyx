@@ -1,0 +1,149 @@
+package http
+
+Response :: struct {
+    status_code: u32;
+    headers: Map(str, str);
+    contents: [] u8;
+
+    completed := false;
+
+    json     :: response_json
+    html     :: response_html
+    body     :: response_body
+    redirect :: response_redirect
+    end      :: response_end
+}
+
+#package
+response_json :: #match {
+    (res: ^Response, data: ^json.Value) {
+        res.headers["Content-Type"] = "application/json";
+
+        encoded, err := json.encode_string(data);
+        if err == .None {
+            res.contents = encoded;
+        }
+    }
+}
+
+#package
+response_html :: (res: ^Response, html: [] u8) {
+    res.headers["Content-Type"] = "text/html";
+    res.contents = html;
+}
+
+#package
+response_body :: (res: ^Response, type: str, data: [] u8) {
+    res.headers["Content-Type"] = type;
+    res.contents = data;
+}
+
+#package
+response_redirect :: (res: ^Response, location: str, status := 301) {
+    res.status_code = status;
+    res.headers["Location"] = location;
+}
+
+#package
+response_end :: (res: ^Response) {
+    res.completed = true;
+}
+
+
+#package
+response_free :: (res: ^Response) {
+    delete(^res.headers);
+    delete(^res.contents);
+}
+
+
+#package
+send_response :: (res: ^Response, s: ^io.Stream) {
+    @Cleanup
+    res.headers["Content-Length"] = core.tprintf("{}", res.contents.count);
+    res.headers["Server"] = "Onyx-Http";
+
+    w := io.writer_make(s);
+
+    io.write_format(^w, "HTTP/1.1 {} {}\r\n",
+        res.status_code,
+        status_code_to_message(res.status_code));
+
+    for^ res.headers.entries {
+        io.write_format(^w, "{}: {}\r\n", it.key, it.value);
+    }
+
+    io.write(^w, "\r\n");
+
+    io.write(^w, res.contents);
+}
+
+#package
+status_code_to_message :: (s: u32) => {
+    switch s {
+        case 100 do return "Continue";
+        case 101 do return "Switching Protocols";
+        case 102 do return "Processing";
+        case 103 do return "Early Hints";
+
+        case 200 do return "OK";
+        case 201 do return "Created";
+        case 202 do return "Accepted";
+        case 203 do return "Non-Authoritative Information";
+        case 204 do return "No Content";
+        case 205 do return "Reset Content";
+        case 206 do return "Partial Content";
+
+        case 300 do return "Multiple Choices";
+        case 301 do return "Moved Permanently";
+        case 302 do return "Found";
+        case 303 do return "See Other";
+        case 304 do return "Not Modified";
+        case 305 do return "Use Proxy";
+        case 307 do return "Temporary Redirect";
+        case 308 do return "Permanent Redirect";
+
+        case 400 do return "Bad Request";
+        case 401 do return "Unauthorized";
+        case 402 do return "Payment Required";
+        case 403 do return "Forbidden";
+        case 404 do return "Not Found";
+        case 405 do return "Method Not Allowed";
+        case 406 do return "Not Acceptable";
+        case 407 do return "Proxy Authenication Required";
+        case 408 do return "Request Timeout";
+        case 409 do return "Conflict";
+        case 410 do return "Gone";
+        case 411 do return "Length Required";
+        case 412 do return "Precondition Failed";
+        case 413 do return "Payload Too Large";
+        case 414 do return "URI Too Long";
+        case 415 do return "Unsupported Media Type";
+        case 416 do return "Range Not Satisfiable";
+        case 417 do return "Expectation failed";
+        case 418 do return "I'm a teapot";
+        case 421 do return "Misdirected Request";
+        case 422 do return "Unprocessable Entity";
+        case 425 do return "Too Early";
+        case 426 do return "Upgrade Required";
+        case 428 do return "Precondition Required";
+        case 429 do return "Too Many Requests";
+        case 431 do return "Request Header Fields Too Large";
+        case 451 do return "Unavailable For Legal Reasons";
+
+        case 500 do return "Internal Server Error";
+        case 501 do return "Not Implemented";
+        case 502 do return "Bad Gateway";
+        case 503 do return "Service Unavailable";
+        case 504 do return "Gateway Timeout";
+        case 505 do return "HTTP Version Not Supported";
+        case 506 do return "Variant Also Neogitates";
+        case 507 do return "Insufficient Storage";
+        case 508 do return "Loop Detected";
+        case 510 do return "Not Extended";
+        case 511 do return "Network Authenication Required";
+
+        case #default do return "UNKNOWN";
+    }
+}
+

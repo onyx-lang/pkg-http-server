@@ -1,0 +1,56 @@
+package http
+
+Application :: struct {
+    server: ^net.TCP_Server;
+    pipeline: Pipeline;
+
+    pipe  :: application_pipe;
+    serve :: application_serve;
+}
+
+application :: () -> Application {
+    app: Application;
+
+    app.pipeline = pipeline();
+
+    return app;
+}
+
+#package
+application_pipe :: (app: ^Application, s: $T) {
+    app.pipeline->add(s);
+}
+
+#package
+application_serve :: (app: ^Application, port: u32) {
+    log(core.tprintf("Serving on port {}\n", port));
+
+    app.server = net.tcp_server_make(max_clients=4);
+    if !app.server->listen(~~port) {
+        core.printf("Failed to bind to port {}.\n", port);
+        return;
+    }
+
+    app.server->handle_events() {
+        @TODO // I don't think I have to handle these,
+        // as it makes no difference when a TCP connection
+        // opens or closes. Only the data sent is important.
+        case .Connection ---
+        case .Disconnection ---
+
+        case .Data {
+            data := cast(^core.net.TCP_Event.Data) it.data;
+
+            req: Request;
+            parse_request_from_string(^req, data.contents);
+            defer request_free(^req);
+
+            res: Response;
+            defer response_free(^res);
+
+            app.pipeline->process(^req, ^res);
+            send_response(^res, ^data.client.socket);
+        }
+    }
+}
+

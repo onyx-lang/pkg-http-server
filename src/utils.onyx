@@ -1,0 +1,111 @@
+package http
+
+HTTP_Handler :: #type (^Request, ^Response) -> void;
+
+HTTP_Method :: enum {
+    UNKNOWN; GET; HEAD; POST; PUT; DELETE; CONNECT; OPTIONS; TRACE; PATCH;
+}
+
+urlencode :: (s: str, allocator := context.allocator) -> str {
+    out := make([..] u8, s.count, allocator=allocator);
+
+    for ch: s do switch ch {
+        //
+        // This list was taken from:
+        // https://developer.mozilla.org/en-US/docs/Glossary/percent-encoding
+        match(#char ":", "%3A");
+        match(#char "/", "%2F");
+        match(#char "?", "%3F");
+        match(#char "#", "%23");
+        match(#char "[", "%5B");
+        match(#char "]", "%5D");
+        match(#char "@", "%40");
+        match(#char "!", "%21");
+        match(#char "$", "%24");
+        match(#char "&", "%26");
+        match(#char "'", "%27");
+        match(#char "(", "%28");
+        match(#char ")", "%29");
+        match(#char "*", "%2A");
+        match(#char "+", "%2B");
+        match(#char ",", "%2C");
+        match(#char ";", "%3B");
+        match(#char "=", "%3D");
+        match(#char "%", "%25");
+        match(#char " ", "%20");
+
+        case #default do out << ch;
+
+        match :: macro (from: u8, to: str) {
+            //
+            // How's this for a one-liner
+            case from do for to do out << it;
+        }
+    }
+
+    return out;
+}
+
+urldecode :: (s: str, allocator := context.allocator) -> str {
+    out := make([..] u8, s.count, allocator=allocator);
+
+    i := iter.as_iterator(s);
+    defer iter.close(i);
+
+    for #no_close ch: i {
+        if *ch == #char "%" {
+            a, e  := iter.take_one(i, no_close=true);
+            b, e' := iter.take_one(i, no_close=true);
+
+            n := u8.[*a, *b];
+
+            v := conv.str_to_i64(n, base=16);
+            switch v {
+                match(0x3A, #char ":");
+                match(0x2F, #char "/");
+                match(0x3F, #char "?");
+                match(0x23, #char "#");
+                match(0x5B, #char "[");
+                match(0x5D, #char "]");
+                match(0x40, #char "@");
+                match(0x21, #char "!");
+                match(0x24, #char "$");
+                match(0x26, #char "&");
+                match(0x27, #char "'");
+                match(0x28, #char "(");
+                match(0x29, #char ")");
+                match(0x2A, #char "*");
+                match(0x2B, #char "+");
+                match(0x2C, #char ",");
+                match(0x3B, #char ";");
+                match(0x3D, #char "=");
+                match(0x25, #char "%");
+                match(0x20, #char " ");
+
+                match :: macro (from: i64, to: u8) {
+                    case from do out << to;
+                }
+            }
+
+        } else {
+            out << *ch;
+        }
+    }
+
+    return out;
+}
+
+#package {
+    // The http-server library uses a single allocator across all uses,
+    // even if multiple applications are used (for some reason).
+
+    long_term_allocator: Allocator;
+    short_term_allocator: Allocator;
+    short_term_arena: arena.ArenaState;
+
+    prepare_allocators :: #init () {
+        long_term_allocator = context.allocator;
+        short_term_arena = arena.make(long_term_allocator, 1 * 1024 * 1024); 
+        short_term_allocator = arena.make_allocator(^short_term_arena);
+    }
+}
