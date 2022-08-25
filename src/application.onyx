@@ -4,6 +4,9 @@ Application :: struct {
     server: ^net.TCP_Server;
     pipeline: Pipeline;
 
+    session_state:     alloc.heap.AutoHeapState;
+    session_allocator: Allocator;
+
     pipe  :: application_pipe;
     serve :: application_serve;
 }
@@ -23,7 +26,9 @@ application_pipe :: (app: ^Application, s: $T) {
 
 #package
 application_serve :: (app: ^Application, port: u32) {
-    log(core.tprintf("Serving on port {}\n", port));
+            
+    app.session_state = alloc.heap.auto_heap_make();
+    app.session_allocator = alloc.as_allocator(^app.session_state);
 
     app.server = net.tcp_server_make(max_clients=4);
     if !app.server->listen(~~port) {
@@ -31,6 +36,7 @@ application_serve :: (app: ^Application, port: u32) {
         return;
     }
 
+    log(core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
         @TODO // I don't think I have to handle these,
         // as it makes no difference when a TCP connection
@@ -41,15 +47,51 @@ application_serve :: (app: ^Application, port: u32) {
         case .Data {
             data := cast(^core.net.TCP_Event.Data) it.data;
 
+            old_allocator := context.allocator;
+            context.allocator = app.session_allocator;
+            defer {
+                alloc.heap.auto_heap_clear(^app.session_state);
+                context.allocator = old_allocator;
+            }
+
             req: Request;
-            parse_request_from_string(^req, data.contents);
+            req.app = app;
+            parse_request(^req, data.contents);
             defer request_free(^req);
 
             res: Response;
             defer response_free(^res);
 
             app.pipeline->process(^req, ^res);
+
+            if res.status_code == 0 {
+                res.status_code = 404;
+            }
+
+            // Add the date header.
+            // This should also be in a pipeline.
+            {
+                t := os.time();
+                timestamp: time.Timestamp;
+                time.gmtime(t / 1000, ^timestamp);
+
+                buf: [128] u8;
+                formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", ^timestamp);
+                res.headers["Date"] = formatted_time |> string.alloc_copy();
+            }
+
             send_response(^res, ^data.client.socket);
+
+            // Temporary logger for debugging.
+            // I would like a logger to be part of the pipeline,
+            // but currently the pipeline stops after a request
+            // is successfully processed and .Finish is returned.
+            // Therefore, the logger would never run...
+            core.printf("{} {} {}{} - {}\n",
+                    data.client.address->addr_as_str(),
+                    req.method,
+                    req.headers["Host"], req.endpoint,
+                    res.status_code);
         }
     }
 }

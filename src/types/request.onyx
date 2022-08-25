@@ -1,6 +1,8 @@
 package http
 
 Request :: struct {
+    app: ^Application;
+
     method: HTTP_Method;
     endpoint: str;
 
@@ -30,7 +32,7 @@ get_query_param :: macro (req: ^Request, $type: type_expr, param: str, default :
     // you have to return the correct type here. This
     // does not affect the runtime at all. Currently,
     // #if does not work with compile time parameters
-    // which is why this is necessary.
+    // in macros which is why this is necessary.
     if type == str {
         return *cast(^type) ^req.query[param];
     }
@@ -56,12 +58,20 @@ request_free :: (req: ^Request) {
     delete(^req.query);
 }
 
-#package
-parse_request_from_string :: (req: ^Request, s: str) {
-    stream := io.string_stream_make(s);
+
+parse_request :: #match {}
+
+#overload
+parse_request :: (req: ^Request, s: str) {
+    stream := io.buffer_stream_make(s, fixed=true, write_enabled=false);
     r := io.reader_make(^stream);
     defer io.reader_free(^r);
+    
+    parse_request(req, ^r);
+}
 
+#overload
+parse_request :: (req: ^Request, r: ^io.Reader) {
     @ErrorHandling
     {
         request_line := r->read_line(inplace=true);

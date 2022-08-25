@@ -1,16 +1,21 @@
 package http
 
 #package {
+    alloc  :: core.alloc
     string :: core.string
     io     :: core.io
+    os     :: core.os
     arena  :: core.alloc.arena
     iter   :: core.iter
     conv   :: core.conv
+    time   :: core.time
 
     net    :: core.net
 }
 
 #load_all "./src"
+#load_all "./src/types"
+#load_all "./src/pipes"
 
 #if #defined(main.HTTP_EXAMPLE) {
     // The example files included in this package

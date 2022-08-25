@@ -95,6 +95,40 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
     return out;
 }
 
+#package known_mimetypes: Map(str, str);
+guess_mime_type :: (filename: str) -> str {
+    extension := filename[string.last_index_of(filename, #char ".")+1 .. filename.count];
+
+    if known_mimetypes->has(extension) {
+        return known_mimetypes[extension];
+    }
+
+    //
+    // This is a small list of mime types that should be expanded
+    // on in the future. I don't know if it is worth pulling all
+    // of the known mime types from:
+    //
+    // https://www.iana.org/assignments/media-types/media-types.xhtml
+    //
+    // or if that is a little overkill.
+    switch extension {
+        case "html" do return "text/html";
+        case "css"  do return "text/css";
+        case "js"   do return "text/javascript";
+        case "xml"  do return "text/xml";
+
+        case "jpg", "jpeg"  do return "image/jpeg";
+        case "png"          do return "image/png";
+
+        case #default do return "application/text";
+    }
+}
+
+set_mime_type :: (ext: str, type: str) {
+    known_mimetypes->put(ext, type);
+}
+
+
 #package {
     // The http-server library uses a single allocator across all uses,
     // even if multiple applications are used (for some reason).
@@ -107,5 +141,7 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
         long_term_allocator = context.allocator;
         short_term_arena = arena.make(long_term_allocator, 1 * 1024 * 1024); 
         short_term_allocator = arena.make_allocator(^short_term_arena);
+
+        known_mimetypes->init();
     }
 }

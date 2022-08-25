@@ -1,26 +1,26 @@
 package http
 
 Pipeline :: struct {
-    steps: [..] Pipeline_Step;
+    steps: [..] Pipe;
 
     free    :: pipeline_free
     add     :: pipeline_add_step
     process :: pipeline_process
+
+    Action :: enum {
+        Proceed;
+        Finish;
+    }
 }
 
-Pipeline_Step :: struct {
-    handler: (data: rawptr, req: ^Request, res: ^Response) -> Pipeline_Action;
+Pipe :: struct {
+    handler: (data: rawptr, req: ^Request, res: ^Response) -> Pipeline.Action;
     data: rawptr;
 }
 
-Pipeline_Action :: enum {
-    Proceed;
-    Finish;
-}
-
-pipeline :: (allocator := context.allocator) -> Pipeline {
+pipeline :: () -> Pipeline {
     p: Pipeline;
-    p.steps = make(typeof p.steps, allocator=allocator);
+    p.steps = make(typeof p.steps, allocator=long_term_allocator);
     return p;
 }
 
@@ -31,12 +31,12 @@ pipeline_free :: (p: ^Pipeline) {
 
 #package
 pipeline_add_step :: (p: ^Pipeline, s: $T) where Pipeable(T) {
-    step := convert_to_pipeline(s);
+    step := convert_to_pipe(s);
     p.steps << step;
 }
 
 #package
-pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) -> Pipeline_Action {
+pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) -> Pipeline.Action {
     for p.steps {
         if it.handler(it.data, req, res) == .Finish {
             return .Finish;
@@ -47,12 +47,11 @@ pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) -> Pipeline_Ac
 }
 
 
-convert_to_pipeline :: #match {}
+convert_to_pipe :: #match {}
 Pipeable :: interface (T as t) {
-    { convert_to_pipeline(t) } -> Pipeline_Step;
+    { convert_to_pipe(t) } -> Pipe;
 }
 
 
-#match convert_to_pipeline macro (p: ^Pipeline) -> Pipeline_Step {
-    return .{ pipeline_process, p };
-}
+#overload
+convert_to_pipe :: macro (p: ^Pipeline) => Pipe.{pipeline_process, p};

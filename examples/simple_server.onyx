@@ -3,30 +3,39 @@
 #load_path "./lib"
 #load "./module"
 
+#tag http.route.{.GET, "/test"}
+_ :: (req: ^http.Request, res: ^http.Response) {
+    v := req->get_query_param(i32, "val");
+    name := req->get_query_param(str, "name");
+
+    res->status(200);
+    res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
+}
+
+#tag http.route.{.GET, "/"}
+_ :: (req: ^http.Request, res: ^http.Response) {
+    res->status(200);
+    res->file("examples/index.html");
+}
+
+#tag http.route.{.GET, "/redirectme"}
+_ :: (req: ^http.Request, res: ^http.Response) {
+    res->cookie("redirected", "true");
+    res->redirect("/test");
+}
+
 main :: () {
     app := http.application();
 
+    static := http.static("/static", "examples/static");
+    app->pipe(^static);
+
     router := http.router();
-
-    router->get("/test", (req, res) => {
-        v := req->get_query_param(i32, "val");
-        name := req->get_query_param(str, "name");
-        res.status_code = 200;
-
-        for req.cookies.entries {
-            core.printf("{}: {}\n", it.key, it.value);
-        }
-
-        res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
-    });
-
-    router->get("/redirectme", (req, res) => {
-        res->redirect("/test");
-    });
+    router->collect_routes();
 
     app->pipe(^router);
 
-    app->serve(8081);
+    app->serve(8080);
 }
 
 HTTP_EXAMPLE :: true
