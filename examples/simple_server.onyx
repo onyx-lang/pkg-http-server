@@ -24,6 +24,12 @@ _ :: (req: ^http.Request, res: ^http.Response) {
     res->redirect("/test");
 }
 
+#tag http.route.{.GET, "/locked"}
+_ :: (req: ^http.Request, res: ^http.Response) {
+    res.headers["WWW-Authenticate"] = "Basic realm=\"Test\"";
+    res->status(401);
+}
+
 main :: () {
     app := http.application();
 

@@ -78,7 +78,7 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
         return;
     }
 
-    endpoint := req.endpoint[router.base_path.count .. req.endpoint.count];
+    endpoint := req.endpoint[router.base_path.length .. req.endpoint.length];
 
     for^ router.routes {
         if it.method == req.method && it.pattern.route == endpoint {
