@@ -13,22 +13,22 @@ static :: (route, path: str) -> Static_File_Router {
 }
 
 #package
-static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Response) -> Pipeline.Action {
-    if !string.starts_with(req.endpoint, sf.base_route) do return .Proceed;
+static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Response) {
+    if !string.starts_with(req.endpoint, sf.base_route) do return;
 
     file_path := req.endpoint[sf.base_route.count .. req.endpoint.count];
     full_path := core.tprintf("{}{}", sf.base_path, file_path);
 
-    if !os.file_exists(full_path) {
+    if !os.file_exists(full_path) || !os.is_file(full_path) {
         res->status(404);
-        return .Finish;
+        res->end();
     }
 
     contents := os.get_contents(full_path);
 
     res->status(200);
     res->body(http.guess_mime_type(full_path), contents);
-    return .Finish;
+    res->end();
 }
 
 #overload

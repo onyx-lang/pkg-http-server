@@ -20,8 +20,10 @@ package http
 #if #defined(main.HTTP_EXAMPLE) {
     // The example files included in this package
     // need to include the other required files differently.
-    #load "json/module"
+    #load "lib/json/module"
+    #load "lib/base64/module"
 
 } else {
     #load "./../json/module"
+    #load "./../base64/module"
 }

@@ -4,11 +4,19 @@ Request :: struct {
     app: ^Application;
 
     method: HTTP_Method;
+
+    // base_endpoint is what was originally requested.
+    // endpoint is modified through request routing,
+    // and ends up being the final route that was
+    // matched.
+    base_endpoint: str;
     endpoint: str;
 
     headers: Map(str, str);
     query:   Map(str, str);
     cookies: Map(str, str);
+
+    address: net.Socket_Address;
 
     body: str;
 
@@ -91,6 +99,7 @@ parse_request :: (req: ^Request, r: ^io.Reader) {
         string.advance(^request_line);
 
         req.endpoint = string.read_until(^route, #char "?") |> string.alloc_copy();
+        req.base_endpoint = req.endpoint;
 
         @ErrorHandling
         while !string.is_empty(route) {

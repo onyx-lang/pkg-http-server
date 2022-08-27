@@ -31,9 +31,9 @@ application_serve :: (app: ^Application, port: u32) {
     app.session_allocator = alloc.as_allocator(^app.session_state);
 
     app.server = net.tcp_server_make(max_clients=4);
-    if !app.server->listen(~~port) {
+    while !app.server->listen(~~port) {
         core.printf("Failed to bind to port {}.\n", port);
-        return;
+        port += 1;
     }
 
     log(core.tprintf("Serving on port {}", port));
@@ -56,6 +56,7 @@ application_serve :: (app: ^Application, port: u32) {
 
             req: Request;
             req.app = app;
+            req.address = data.client.address;
             parse_request(^req, data.contents);
             defer request_free(^req);
 
@@ -63,35 +64,8 @@ application_serve :: (app: ^Application, port: u32) {
             defer response_free(^res);
 
             app.pipeline->process(^req, ^res);
-
-            if res.status_code == 0 {
-                res.status_code = 404;
-            }
-
-            // Add the date header.
-            // This should also be in a pipeline.
-            {
-                t := os.time();
-                timestamp: time.Timestamp;
-                time.gmtime(t / 1000, ^timestamp);
-
-                buf: [128] u8;
-                formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", ^timestamp);
-                res.headers["Date"] = formatted_time |> string.alloc_copy();
-            }
-
+            response_finalize(^res);
             send_response(^res, ^data.client.socket);
-
-            // Temporary logger for debugging.
-            // I would like a logger to be part of the pipeline,
-            // but currently the pipeline stops after a request
-            // is successfully processed and .Finish is returned.
-            // Therefore, the logger would never run...
-            core.printf("{} {} {}{} - {}\n",
-                    data.client.address->addr_as_str(),
-                    req.method,
-                    req.headers["Host"], req.endpoint,
-                    res.status_code);
         }
     }
 }

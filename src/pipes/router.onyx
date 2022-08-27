@@ -9,6 +9,7 @@ Router :: struct {
 
     collect_routes :: router_collect_routes
     route          :: router_add_route
+    all            :: #solidify __quick_route {method=HTTP_Method.ALL}
     get            :: #solidify __quick_route {method=HTTP_Method.GET}
     post           :: #solidify __quick_route {method=HTTP_Method.POST}
     put            :: #solidify __quick_route {method=HTTP_Method.PUT}
@@ -18,11 +19,13 @@ Router :: struct {
     route_request :: router_route_request
 }
 
+HTTP_Handler :: #type (^Request, ^Response) -> void;
+
 #package
 Route :: struct {
     method:  HTTP_Method;
     pattern: Route_Pattern;
-    handler: HTTP_Handler;
+    pipeline: Pipeline;
 }
 
 #package
@@ -37,6 +40,9 @@ route :: struct {
     group := "";
 }
 
+middleware :: struct {
+    func: HTTP_Handler; 
+}
 
 router :: (base_path := "") -> Router {
     r: Router;
@@ -48,13 +54,46 @@ router :: (base_path := "") -> Router {
 }
 
 #package
-router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
+router_add_route :: #match #local {}
+
+#overload
+router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
     router.routes << .{ 
         method = method,
         pattern = .{ route },
-        handler = handle
+        pipeline = pipeline,
     };
 }
+
+#overload
+router_add_route :: macro (router: ^Router, route: str, handle: $T) where Pipeable(T) {
+    router->route(.ALL, route, handle);
+}
+
+#overload
+router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $T) where Pipeable(T) {
+    pipes := pipeline();
+    pipes->add(handle);
+
+    router.routes << .{ 
+        method = method,
+        pattern = .{ route },
+        pipeline = pipes,
+    };
+}
+
+#overload
+router_add_route :: (router: ^Router, method: HTTP_Method, route: str, steps: ..Pipe) {
+    pipes := pipeline();
+    for steps do pipes->add(it);
+
+    router.routes << .{ 
+        method = method,
+        pattern = .{ route },
+        pipeline = pipes,
+    };
+}
+
 
 #local
 __quick_route :: (router: ^Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) {
@@ -63,11 +102,21 @@ __quick_route :: (router: ^Router, $method: HTTP_Method, route: str, handle: HTT
 
 #package
 router_collect_routes :: (router: ^Router, group := "") {
-    procs := runtime.info.get_procedures_with_tag(http.route);
+    procs := runtime.info.get_procedures_with_tag(route);
     for procs {
         if it.tag.group != group do continue;
 
-        router_add_route(router, it.tag.method, it.tag.route, *cast(^HTTP_Handler) ^it.func);
+        pipes := pipeline();
+        for tag: runtime.info.get_tags_for_procedure(it.func) {
+            if tag.type == middleware {
+                mw := cast(^middleware) tag.data;
+                pipes->add(mw.func);
+            }
+        }
+
+        pipes->add(*cast(^HTTP_Handler) ^it.func);
+
+        router_add_route(router, it.tag.method, it.tag.route, pipes);
     }
 }
 
@@ -78,11 +127,33 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
         return;
     }
 
-    endpoint := req.endpoint[router.base_path.length .. req.endpoint.length];
+    previous_endpoint := req.endpoint;
+    defer req.endpoint = previous_endpoint;
+
+    req.endpoint = req.endpoint[router.base_path.length .. req.endpoint.length];
 
     for^ router.routes {
-        if it.method == req.method && it.pattern.route == endpoint {
-            it.handler(req, res);
+        if it.method != .ALL && it.method != req.method do continue;
+
+        //
+        // "/" is a special route.
+        // The code below checks to see if the requested endpoint
+        // begins with the same characters as the route being checked.
+        // This works in almost all cases, and enables nesting routers.
+        // However, if the route is "/" every single route will match
+        // it, which is not the intended behavior. To avoid this, when
+        // matching "/", the match has to be exact ("/"), or the empty
+        // string("").  The empty string case allows a sub router to use
+        // "/" as its route path. So when a user visits "/subroute",
+        // it will match the "/" on the sub router, without the user
+        // having to visit "/subroute/".
+        if it.pattern.route == "/" {
+            if req.endpoint != "/" && req.endpoint.length > 0 do continue;
+        }
+
+        if string.starts_with(req.endpoint, it.pattern.route) {
+            req.endpoint = req.endpoint[it.pattern.route.length .. req.endpoint.length];
+            it.pipeline->process(req, res);
             return;
         }
     }
@@ -90,11 +161,4 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
 
 
 #overload
-convert_to_pipe :: (r: ^Router) -> Pipe {
-    handler :: (r: ^Router, req: ^Request, res: ^Response) -> Pipeline.Action {
-        router_route_request(r, req, res);
-        return (.Finish) if res.completed else .Proceed;
-    }
-
-    return .{ handler, r };
-}
+convert_to_pipe :: macro (r: ^Router) => Pipe.{router_route_request, r};

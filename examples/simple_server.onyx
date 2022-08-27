@@ -12,7 +12,15 @@ _ :: (req: ^http.Request, res: ^http.Response) {
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
 }
 
+require_logon :: (req: ^http.Request, res: ^http.Response) {
+    if !req.cookies->has("redirected") {
+        res->redirect("/redirectme");
+        res->end();
+    }
+}
+
 #tag http.route.{.GET, "/"}
+#tag http.middleware.{require_logon}
 _ :: (req: ^http.Request, res: ^http.Response) {
     res->status(200);
     res->file("examples/index.html");
@@ -26,6 +34,23 @@ _ :: (req: ^http.Request, res: ^http.Response) {
 
 #tag http.route.{.GET, "/locked"}
 _ :: (req: ^http.Request, res: ^http.Response) {
+    if req.headers->has("Authorization") {
+        auth := req.headers["Authorization"];
+
+        if core.string.starts_with(auth, "Basic ") {
+            core.string.advance(^auth, "Basic ".length);
+
+            creds := base64.decode(auth);
+            defer delete(^creds);
+
+            user, pass := core.string.bisect(creds, #char ":");
+            core.printf("User: {}\nPass: {}\n", user, pass);
+
+            res->redirect("/");
+            return;
+        }
+    }
+
     res.headers["WWW-Authenticate"] = "Basic realm=\"Test\"";
     res->status(401);
 }
@@ -39,9 +64,22 @@ main :: () {
     router := http.router();
     router->collect_routes();
 
+    inner_router := http.router();
+    inner_router->get("/other", (req, res) => {
+        res->status(200);
+        res->html("<h1>Inner page!</h1>");
+        res->end();
+    });
+
+    router->route("/inner", ^inner_router);
+
     app->pipe(^router);
+
+    logger := http.logger();
+    app->pipe(^logger);
 
     app->serve(8080);
 }
 
 HTTP_EXAMPLE :: true
+

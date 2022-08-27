@@ -1,9 +1,18 @@
 package http
 
-HTTP_Handler :: #type (^Request, ^Response) -> void;
-
 HTTP_Method :: enum {
-    UNKNOWN; GET; HEAD; POST; PUT; DELETE; CONNECT; OPTIONS; TRACE; PATCH;
+    UNKNOWN;
+    GET;
+    HEAD;
+    POST;
+    PUT;
+    DELETE;
+    CONNECT;
+    OPTIONS;
+    TRACE;
+    PATCH;
+    
+    ALL;
 }
 
 urlencode :: (s: str, allocator := context.allocator) -> str {
