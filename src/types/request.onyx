@@ -55,12 +55,7 @@ get_query_param :: macro (req: ^Request, $type: type_expr, param: str, default :
 
 #package
 request_free :: (req: ^Request) {
-    for^ req.headers.entries {
-        delete(^it.key);
-        delete(^it.value);
-    }
-
-    delete(^req.endpoint);
+    delete(^req.base_endpoint);
     delete(^req.body);
     delete(^req.headers);
     delete(^req.query);

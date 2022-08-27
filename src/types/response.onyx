@@ -92,7 +92,14 @@ response_end :: macro (res: ^Response) {
 #package
 response_free :: (res: ^Response) {
     delete(^res.headers);
-    delete(^res.contents);
+
+    // I'm choosing to omit the explicit deletion
+    // of the contents generated for this response
+    // in favor of using an auto freeing heap for
+    // event handling. I think this will be more
+    // robust and prevent (almost) all forms of
+    // memory leaks, including this one.
+    // delete(^res.contents);
 }
 
 #package
