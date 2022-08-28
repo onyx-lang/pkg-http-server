@@ -6,14 +6,14 @@ Logger :: struct {
     log :: logger_log_request
 }
 
-logger :: (s: ^io.Stream = ^core.stdio_stream) -> http.Logger {
+logger :: (s: ^io.Stream = ^core.stdio_stream) -> Logger {
     return .{
         io.writer_make(s)
     };
 }
 
 #package
-logger_log_request :: (l: ^http.Logger, req: ^Request, res: ^Response) {
+logger_log_request :: (l: ^Logger, req: ^Request, res: ^Response) {
     // This should have the ability to change the logging format.
     io.write_format(
         ^l.writer,
@@ -27,7 +27,7 @@ logger_log_request :: (l: ^http.Logger, req: ^Request, res: ^Response) {
 }
 
 #overload
-convert_to_pipe :: macro (l: ^http.Logger) => Pipe.{
+convert_to_pipe :: macro (l: ^Logger) => Pipe.{
     logger_log_request,
     l,
     execute_after_request = true,

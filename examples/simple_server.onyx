@@ -3,13 +3,45 @@
 #load_path "./lib"
 #load "./module"
 
+use http {
+    Req :: Request,
+    Res :: Response,
+}
+
+#inject
+Res.template :: (res: ^Res, file: str) {
+    core.printf("Responding to request with template: {}\n", file);
+    res->status(200);
+    res->body("", "text/html");
+    res->end();
+}
+
 #tag http.route.{.GET, "/test"}
-_ :: (req: ^http.Request, res: ^http.Response) {
+(req: ^Req, res: ^Res) {
     v := req->get_query_param(i32, "val");
     name := req->get_query_param(str, "name");
 
     res->status(200);
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
+}
+
+#tag http.route.{.GET, "/json"}
+(req: ^http.Request, res: ^http.Response) {
+    V :: struct {x, y: i32}
+
+    res->status(200);
+    res->json(.{
+        test = 123,
+        value = "Hmmm",
+        array = .[1, 2, 3],
+        array2 = .["qwer", "asdf", "zxcv"],
+        array3 = V.[.{1,2},.{3,4},.{5,6}]
+    });
+}
+
+#tag http.route.{.GET, "/templated"}
+(req: ^Req, res: ^Res) {
+    res->template("working!!");
 }
 
 require_logon :: (req: ^http.Request, res: ^http.Response) {
@@ -21,19 +53,19 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
 
 #tag http.route.{.GET, "/"}
 #tag http.middleware.{require_logon}
-_ :: (req: ^http.Request, res: ^http.Response) {
+(req: ^http.Request, res: ^http.Response) {
     res->status(200);
     res->file("examples/index.html");
 }
 
 #tag http.route.{.GET, "/redirectme"}
-_ :: (req: ^http.Request, res: ^http.Response) {
+(req: ^http.Request, res: ^http.Response) {
     res->cookie("redirected", "true");
     res->redirect("/test");
 }
 
 #tag http.route.{.GET, "/locked"}
-_ :: (req: ^http.Request, res: ^http.Response) {
+(req: ^http.Request, res: ^http.Response) {
     if req.headers->has("Authorization") {
         auth := req.headers["Authorization"];
 
@@ -65,9 +97,15 @@ main :: () {
     router->collect_routes();
 
     inner_router := http.router();
+    inner_router->get("/", (req, res) => {
+        res->status(200);
+        res->html("<h1>Inner Index page!</h1>");
+        res->end();
+    });
+
     inner_router->get("/other", (req, res) => {
         res->status(200);
-        res->html("<h1>Inner page!</h1>");
+        res->html("<h1>Inner Other page!</h1>");
         res->end();
     });
 

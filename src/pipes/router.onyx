@@ -56,6 +56,25 @@ router :: (base_path := "") -> Router {
 #package
 router_add_route :: #match #local {}
 
+
+//
+// This case is special, because without it, it is not possible
+// to say router->route(.GET, "/", (req, res) => {...}), as the
+// polymorphic procedure does not match. This is not entirely
+// correct behavior and may be due to an underlying compiler
+// bug. Either way, for now this overload has to be here.
+#overload
+router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
+    pipes := pipeline();
+    pipes->add(handle);
+
+    router.routes << .{ 
+        method = method,
+        pattern = .{ route },
+        pipeline = pipes,
+    };
+}
+
 #overload
 router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
     router.routes << .{ 
@@ -148,14 +167,17 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
         // it will match the "/" on the sub router, without the user
         // having to visit "/subroute/".
         if it.pattern.route == "/" {
-            if req.endpoint != "/" && req.endpoint.length > 0 do continue;
+            if req.endpoint != "/" && req.endpoint.length > 0 {
+                continue;
+            }
+        }
+        elseif !string.starts_with(req.endpoint, it.pattern.route) {
+            continue;
         }
 
-        if string.starts_with(req.endpoint, it.pattern.route) {
-            req.endpoint = req.endpoint[it.pattern.route.length .. req.endpoint.length];
-            it.pipeline->process(req, res);
-            return;
-        }
+        req.endpoint = req.endpoint[it.pattern.route.length .. req.endpoint.length];
+        it.pipeline->process(req, res);
+        return;
     }
 }
 

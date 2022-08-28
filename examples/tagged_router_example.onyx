@@ -1,0 +1,28 @@
+#load "core/std"
+#load "./../module"
+
+// This prevents you from having to type
+// http.Request and http.Response over and
+// over again...
+use http {
+    Req :: Request,
+    Res :: Response,
+}
+
+#tag http.route.{.GET, "/index"}
+(req: ^Req, res: ^Res) {
+    res->status(200);
+    res->html("From a tag!");
+}
+
+main :: () {
+    app := http.application();
+
+    router := http.router();
+    router->collect_routes();
+
+    app->pipe(^router);
+    app->serve(8080);
+}
+
+HTTP_EXAMPLE :: true

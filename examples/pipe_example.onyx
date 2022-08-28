@@ -1,0 +1,23 @@
+#load "core/std"
+#load "./../module"
+
+use core
+
+main :: () {
+    p := http.pipeline();
+
+    p->add((req, res) => {
+        printf("{} was requested!\n", req.base_endpoint);
+    });
+
+    p->add((req, res) => {
+        res->status(200);
+        res->html("Working!");
+    });
+
+    app := http.application();
+    app->pipe(^p);
+    app->serve(8080);
+}
+
+HTTP_EXAMPLE :: true

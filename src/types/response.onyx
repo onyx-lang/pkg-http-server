@@ -19,44 +19,34 @@ Response :: struct {
     cookies: Map(str, str);
 
     completed := false;
-
-    json     :: response_json
-    html     :: response_html
-    body     :: response_body
-    file     :: response_file
-    redirect :: response_redirect
-
-    status   :: response_status
-    cookie   :: response_cookie
-    end      :: response_end
 }
 
-#package
-response_json :: #match {
-    (res: ^Response, data: ^json.Value) {
-        res.headers["Content-Type"] = "application/json";
+#inject
+Response.json :: (res: ^Response, data: $T) {
+    res.headers["Content-Type"] = "application/json";
 
-        encoded, err := json.encode_string(data);
-        if err == .None {
-            res.contents = encoded;
-        }
+    encoded, err := json.encode_string(data);
+    if err == .None {
+        res.contents = encoded;
+    } else {
+        res.status_code = 500;
     }
 }
 
-#package
-response_html :: (res: ^Response, html: [] u8) {
+#inject
+Response.html :: (res: ^Response, html: [] u8) {
     res.headers["Content-Type"] = "text/html";
     res.contents = html;
 }
 
-#package
-response_body :: (res: ^Response, type: str, data: [] u8) {
+#inject
+Response.body :: (res: ^Response, type: str, data: [] u8) {
     res.headers["Content-Type"] = type;
     res.contents = data;
 }
 
-#package
-response_file :: (res: ^Response, path: str, type := "") {
+#inject
+Response.file :: (res: ^Response, path: str, type := "") {
     if os.file_exists(path) && os.is_file(path) {
         t := type if type != "" else guess_mime_type(path);
 
@@ -67,24 +57,24 @@ response_file :: (res: ^Response, path: str, type := "") {
     }
 }
 
-#package
-response_redirect :: macro (res: ^Response, location: str, status := 301) {
+#inject
+Response.redirect :: macro (res: ^Response, location: str, status := 301) {
     res.status_code = status;
     res.headers["Location"] = location;
 }
 
-#package
-response_status :: macro (res: ^Response, status: u32) {
+#inject
+Response.status :: macro (res: ^Response, status: u32) {
     res.status_code = status;
 }
 
-#package
-response_cookie :: macro (res: ^Response, key: str, value: str) {
+#inject
+Response.cookie :: macro (res: ^Response, key: str, value: str) {
     res.cookies[key] = value;
 }
 
-#package
-response_end :: macro (res: ^Response) {
+#inject
+Response.end :: macro (res: ^Response) {
     res.completed = true;
 }
 

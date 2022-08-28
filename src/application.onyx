@@ -20,6 +20,14 @@ application :: () -> Application {
 }
 
 #package
+application_pipe :: #match #local {}
+
+#overload #precedence 1
+application_pipe :: (app: ^Application, s: HTTP_Handler) {
+    app.pipeline->add(s);
+}
+
+#overload #precedence 2
 application_pipe :: (app: ^Application, s: $T) {
     app.pipeline->add(s);
 }

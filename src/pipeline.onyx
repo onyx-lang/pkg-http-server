@@ -30,6 +30,12 @@ pipeline_free :: (p: ^Pipeline) {
 pipeline_add_step :: #match #local {}
 
 #overload
+pipeline_add_step :: (p: ^Pipeline, s: HTTP_Handler) {
+    step := convert_to_pipe(s);
+    p.steps << step;
+}
+
+#overload
 pipeline_add_step :: (p: ^Pipeline, s: $T) where Pipeable(T) {
     step := convert_to_pipe(s);
     p.steps << step;
@@ -51,7 +57,7 @@ pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) {
 
 
 convert_to_pipe :: #match {}
-Pipeable :: interface (T as t) {
+Pipeable :: interface (t: $T) {
     { convert_to_pipe(t) } -> Pipe;
 }
 

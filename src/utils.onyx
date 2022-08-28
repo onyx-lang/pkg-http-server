@@ -154,3 +154,80 @@ set_mime_type :: (ext: str, type: str) {
         known_mimetypes->init();
     }
 }
+
+
+
+
+@Relocate
+#overload #precedence 1000
+json.encode :: (w: ^io.Writer, data: any) -> json.Encoding_Error {
+    use runtime.info;
+
+    info := get_type_info(data.type);
+
+    switch info.kind {
+        case .Basic {
+            io.write_format_va(w, "{}", .[data]);
+        }
+
+        case .Array {
+            io.write(w, "[");
+
+            a := cast(^Type_Info_Array) info;
+            arr := data.data;
+
+            for i: a.count {
+                if i != 0 do io.write(w, ",");
+
+                json.encode(w, any.{ ~~(cast(^u8) arr + get_type_info(a.of).size * i), a.of });
+            }
+
+            io.write(w, "]");
+        }
+
+        case .Slice, .Dynamic_Array {
+            if data.type == str {
+                io.write_format_va(w, "{\"}", .[data]);
+                break;
+            }
+
+            io.write(w, "[");
+
+            a := cast(^Type_Info_Dynamic_Array) info;
+            arr := cast(^core.array.Untyped_Array) data.data;
+            data  := arr.data;
+            count := arr.count;
+
+            for i: count {
+                if i != 0 do io.write(w, ",");
+
+                json.encode(w, any.{ ~~(cast(^u8) data + get_type_info(a.of).size * i), a.of });
+            }
+
+            io.write(w, "]");
+        }
+
+        case .Distinct {
+            d := cast(^Type_Info_Distinct) info;
+            json.encode(w, any.{ data.data, d.base_type });
+        }
+
+        case .Struct {
+            s := cast(^runtime.info.Type_Info_Struct) info;
+
+            io.write(w, "{");
+
+            for ^member: s.members {
+                if member != s.members.data do io.write(w, ",");
+                json.encode(w, member.name);
+                io.write(w, ":");
+                json.encode(w, any.{ ~~(cast(^u8) data.data + member.offset), member.type });
+            }
+            io.write(w, "}");
+        }
+
+        case #default {
+            return .Unsupported_Type;
+        }
+    }
+}

@@ -1,0 +1,26 @@
+#load "core/std"
+#load "./../module"
+
+// A typical HTTP application
+main :: () {
+    app := http.application();
+
+    router := http.router();
+
+    // You can specify the HTTP Method using the enum value.
+    router->route(.GET, "/index", (req, res) => {
+        res->status(200);
+        res->html("Index");
+    });
+
+    // You can also call get, post, etc. directly.
+    router->get("/test", (req, res) => {
+        res->status(200);
+        res->html("Test");  
+    });
+
+    app->pipe(^router);
+    app->serve(8080);
+}
+
+HTTP_EXAMPLE :: true
