@@ -231,3 +231,81 @@ json.encode :: (w: ^io.Writer, data: any) -> json.Encoding_Error {
         }
     }
 }
+
+Json_Key :: struct {key: str;}
+
+json_to_struct :: #match {
+    macro (value: ^json.Value, out: ^$T) {
+        json_to_struct :: json_to_struct
+        json_to_struct(value, T, cast(rawptr) out);
+    },
+
+    (value: ^json.Value, type: type_expr, out: rawptr) {
+        use runtime.info;
+
+        t_info := get_type_info(type);
+        switch t_info.kind {
+            case .Basic do switch type {
+                // These functions handle the cases where the types do
+                // not match, so no additional checks are needed here.
+                case bool     do *cast(^bool) out = value->as_bool();
+                case i32, u32 do *cast(^i32)  out = ~~value->as_int();
+                case i64, u64 do *cast(^i64)  out = value->as_int();
+                case f32      do *cast(^f32)  out = ~~value->as_float();
+                case f64      do *cast(^f64)  out = value->as_float();
+            }
+
+            case .Array {
+                a_info := cast(^Type_Info_Array) t_info;
+
+                for i: a_info.count {
+                    json_to_struct(value[i], a_info.of, cast(^u8) out + size_of(a_info.of) * i);
+                }
+            }
+
+            case .Slice {
+                // Strings are handled differently
+                if type == str {
+                    *cast(^str) out = string.alloc_copy(value->as_str());
+                    return;
+                }
+
+                s_info := cast(^Type_Info_Slice) t_info;
+                s := cast(^core.array.Untyped_Array) out;
+
+                if s.count == 0 {
+                    if s.data != null {
+                        return;
+                    }
+
+                    to_copy := value->as_array();
+
+                    s.data = calloc(size_of(s_info.of) * to_copy.count);
+                    s.count = to_copy.count;
+                }
+
+                for i: s.count {
+                    json_to_struct(value[i], s_info.of, cast(^u8) s.data + size_of(s_info.of) * i);
+                }
+            }
+
+            case .Struct {
+                s_info := cast(^Type_Info_Struct) t_info;
+
+                for^ member: s_info.members {
+                    key := member.name;
+                    if tag := core.array.first(member.tags, #(it.type == Json_Key)); tag != null {
+                        key = (cast(^Json_Key) tag.data).key;
+                    }
+
+                    json_to_struct(value[key], member.type, cast(^u8) out + member.offset);
+                }
+            }
+
+            case .Distinct {
+                d_info := cast(^Type_Info_Distinct) t_info;
+                json_to_struct(value, d_info.base_type, out);
+            }
+        }
+    }
+}

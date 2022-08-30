@@ -18,13 +18,16 @@ Request :: struct {
 
     address: net.Socket_Address;
 
-    body: str;
-
-    get_query_param :: get_query_param
+    body: Request_Body;
 }
 
-#local
-get_query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
+Request_Body :: struct {
+    contents: str;
+}
+
+
+#inject
+Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
     if !req.query->has(param) {
         return default;
     }
@@ -82,13 +85,9 @@ parse_request :: (req: ^Request, r: ^io.Reader) {
         method := string.read_until(^request_line, #char " ");
         string.advance(^request_line);
 
-        req.method = .UNKNOWN;
-        for runtime.info.enum_values(HTTP_Method) {
-            if it.name == method {
-                req.method = ~~ it.value;
-                break;
-            }
-        }
+        m := core.array.first(runtime.info.enum_values(HTTP_Method), #(it.name == method));
+        if m == null do req.method = .UNKNOWN;
+        else         do req.method = ~~m.value;
 
         route := string.read_until(^request_line, #char " ") |> string.alloc_copy();
         string.advance(^request_line);
@@ -142,10 +141,25 @@ parse_request :: (req: ^Request, r: ^io.Reader) {
         req.headers[header] = value;
     }
 
-    r->read_line(inplace=true);
-
-    req.body = r->read_all();
+    req.body = .{ r->read_all() };
 }
 
 
+#inject
+Request_Body.json :: (body: ^Request_Body) -> json.Json {
+    return json.decode(body.contents);
+}
+
+#inject
+Request_Body.json_as :: macro (body: ^Request_Body, $T: type_expr) -> T {
+    json_to_struct :: json_to_struct
+
+    j := json.decode(body.contents);
+    defer json.free(j);
+
+    out: T;
+    json_to_struct(j.root, ^out);
+
+    return out;
+}
 

@@ -18,8 +18,8 @@ Res.template :: (res: ^Res, file: str) {
 
 #tag http.route.{.GET, "/test"}
 (req: ^Req, res: ^Res) {
-    v := req->get_query_param(i32, "val");
-    name := req->get_query_param(str, "name");
+    v := req->query_param(i32, "val");
+    name := req->query_param(str, "name");
 
     res->status(200);
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
@@ -85,6 +85,22 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
 
     res.headers["WWW-Authenticate"] = "Basic realm=\"Test\"";
     res->status(401);
+}
+
+
+Input :: struct {
+    name: str;
+    age:  u32;
+    data: [] u32;
+}
+
+#tag http.route.{.POST, "/json"}
+(req: ^Req, res: ^Res) {
+    input := req.body->json_as(Input);
+    core.println(input);
+
+    res->status(200);
+    res->end();
 }
 
 main :: () {
