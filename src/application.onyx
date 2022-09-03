@@ -41,7 +41,7 @@ application_serve :: (app: ^Application, port: u32) {
     app.server = net.tcp_server_make(max_clients=4);
     app.server.emit_data_events = false;
 
-    while !app.server->listen(~~port) {
+    while !(app.server->listen(~~port)) {
         core.printf("Failed to bind to port {}.\n", port);
         port += 1;
     }

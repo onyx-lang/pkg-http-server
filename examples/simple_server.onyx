@@ -45,7 +45,7 @@ Res.template :: (res: ^Res, file: str) {
 }
 
 require_logon :: (req: ^http.Request, res: ^http.Response) {
-    if !req.cookies->has("redirected") {
+    if !(req.cookies->has("redirected")) {
         res->redirect("/redirectme");
         res->end();
     }

@@ -29,7 +29,7 @@ Request_Body :: struct {
 
 #inject
 Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
-    if !req.query->has(param) {
+    if !(req.query->has(param)) {
         return default;
     }
 
@@ -202,7 +202,7 @@ Request_Body.is_json :: (body: ^Request_Body) -> bool {
 
 #inject
 Request_Body.json :: (body: ^Request_Body) -> json.Json {
-    if !body->is_json() do return .{};
+    if !(body->is_json()) do return .{};
 
     return json.decode(body.contents);
 }

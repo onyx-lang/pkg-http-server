@@ -250,11 +250,11 @@ json_to_struct :: #match {
             case .Basic do switch type {
                 // These functions handle the cases where the types do
                 // not match, so no additional checks are needed here.
-                case bool     do *cast(^bool) out = value->as_bool();
-                case i32, u32 do *cast(^i32)  out = ~~value->as_int();
-                case i64, u64 do *cast(^i64)  out = value->as_int();
-                case f32      do *cast(^f32)  out = ~~value->as_float();
-                case f64      do *cast(^f64)  out = value->as_float();
+                case bool     do *cast(^bool) out =    value->as_bool();
+                case i32, u32 do *cast(^i32)  out = ~~(value->as_int());
+                case i64, u64 do *cast(^i64)  out =    value->as_int();
+                case f32      do *cast(^f32)  out = ~~(value->as_float());
+                case f64      do *cast(^f64)  out =    value->as_float();
             }
 
             case .Array {
