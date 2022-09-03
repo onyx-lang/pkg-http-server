@@ -58,6 +58,22 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
     res->file("examples/index.html");
 }
 
+#tag http.route.{.POST, "/"}
+(req: ^http.Request, res: ^http.Response) {
+    if req.body->is_form() {
+        data := req.body->form();
+
+        res->status(200);
+
+        html := core.tprintf("<h1>Hello, {}!</h1>", data["name"]);
+        res->html(html);
+
+        return;
+    }
+
+    res->status(400);
+}
+
 #tag http.route.{.GET, "/redirectme"}
 (req: ^http.Request, res: ^http.Response) {
     res->cookie("redirected", "true");
@@ -66,8 +82,8 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
 
 #tag http.route.{.GET, "/locked"}
 (req: ^http.Request, res: ^http.Response) {
-    if req.headers->has("Authorization") {
-        auth := req.headers["Authorization"];
+    if req.headers->has("authorization") {
+        auth := req.headers["authorization"];
 
         if core.string.starts_with(auth, "Basic ") {
             core.string.advance(^auth, "Basic ".length);

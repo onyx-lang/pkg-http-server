@@ -39,6 +39,8 @@ application_serve :: (app: ^Application, port: u32) {
     app.session_allocator = alloc.as_allocator(^app.session_state);
 
     app.server = net.tcp_server_make(max_clients=4);
+    app.server.emit_data_events = false;
+
     while !app.server->listen(~~port) {
         core.printf("Failed to bind to port {}.\n", port);
         port += 1;
@@ -46,15 +48,12 @@ application_serve :: (app: ^Application, port: u32) {
 
     log(core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
-        @TODO // I don't think I have to handle these,
-        // as it makes no difference when a TCP connection
-        // opens or closes. Only the data sent is important.
-        case .Connection ---
-        case .Disconnection ---
+        case .Connection {
+            // Enable non-blocking communication on all sockets
+            (cast(^core.net.TCP_Event.Connection) it.data).client.socket->setting(.NonBlocking, 1);
+        }
 
-        case .Data {
-            data := cast(^core.net.TCP_Event.Data) it.data;
-
+        case .Ready {
             old_allocator := context.allocator;
             context.allocator = app.session_allocator;
             defer {
@@ -62,18 +61,32 @@ application_serve :: (app: ^Application, port: u32) {
                 context.allocator = old_allocator;
             }
 
+            ready_client := cast(^core.net.TCP_Event.Ready) it.data;
+            defer ready_client.client.recv_ready_event_present = false;
+
+            reader := io.reader_make(^ready_client.client.socket);
+            defer io.reader_free(^reader);
+
             req: Request;
-            req.app = app;
-            req.address = data.client.address;
-            parse_request(^req, data.contents);
             defer request_free(^req);
+
+            req.app = app;
+            req.address = ready_client.client.address;
+            if !parse_request(^req, ^reader) {
+                // If the request fails to parse, shutdown the connection.
+                // Likely, this is actually due to the socket being empty
+                // and/or already closed, but you can't tell until you try
+                // to read from it.
+                app.server->kill_client(ready_client.client);
+                continue;
+            }
 
             res: Response;
             defer response_free(^res);
 
             app.pipeline->process(^req, ^res);
             response_finalize(^res);
-            send_response(^res, ^data.client.socket);
+            send_response(^res, ^ready_client.client.socket);
         }
     }
 }

@@ -96,6 +96,8 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
                 }
             }
 
+        } elseif *ch == #char "+" {
+            out << #char " ";
         } else {
             out << *ch;
         }

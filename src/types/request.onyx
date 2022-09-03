@@ -23,6 +23,7 @@ Request :: struct {
 
 Request_Body :: struct {
     contents: str;
+    request:  ^Request;
 }
 
 
@@ -58,29 +59,29 @@ Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, defau
 
 #package
 request_free :: (req: ^Request) {
-    delete(^req.base_endpoint);
-    delete(^req.body);
     delete(^req.headers);
     delete(^req.query);
+    delete(^req.cookies);
 }
 
 
-parse_request :: #match {}
+parse_request :: #match #local {}
 
 #overload
-parse_request :: (req: ^Request, s: str) {
+parse_request :: (req: ^Request, s: str) -> bool {
     stream := io.buffer_stream_make(s, fixed=true, write_enabled=false);
     r := io.reader_make(^stream);
     defer io.reader_free(^r);
     
-    parse_request(req, ^r);
+    return parse_request(req, ^r);
 }
 
 #overload
-parse_request :: (req: ^Request, r: ^io.Reader) {
+parse_request :: (req: ^Request, r: ^io.Reader) -> bool {
     @ErrorHandling
     {
-        request_line := r->read_line(inplace=true);
+        request_line := r->read_line();
+        if request_line.length == 0 do return false;
 
         method := string.read_until(^request_line, #char " ");
         string.advance(^request_line);
@@ -89,47 +90,27 @@ parse_request :: (req: ^Request, r: ^io.Reader) {
         if m == null do req.method = .UNKNOWN;
         else         do req.method = ~~m.value;
 
-        route := string.read_until(^request_line, #char " ") |> string.alloc_copy();
+        route := string.read_until(^request_line, #char " ");
         string.advance(^request_line);
 
-        req.endpoint = string.read_until(^route, #char "?") |> string.alloc_copy();
+        req.endpoint = string.read_until(^route, #char "?");
         req.base_endpoint = req.endpoint;
+        string.advance(^route);
 
-        @ErrorHandling
-        while !string.is_empty(route) {
-            string.advance(^route);
-
-            key   := string.read_until(^route, #char "=") |> urldecode();
-            string.advance(^route);
-            value := string.read_until(^route, #char "&") |> urldecode();
-
-            req.query[key] = value;
-        }
+        parse_url_encoded_key_value(^req.query, ^route);
     }
 
     while true {
-        line := r->read_line(inplace=true);
-        if line == "\r\n" do break;
+        header, value := parse_header(r);
+        if header == "" do break;
 
-        header := string.read_until(^line, #char ":")
-               |> string.alloc_copy();
-        string.advance(^line, 2);
-
-        value := line
-              |> string.trim_end(#char "\n")
-              |> string.trim_end(#char "\r")
-              |> string.alloc_copy();
-
-        if header == "Cookie" {
+        if header == "cookie" {
             // Parse cookies
             while true {
                 pair := string.read_until(^value, "; ");
                 if pair.count == 0 do break;
 
-                k    := string.read_until(^pair, #char "=");
-                string.advance(^pair);
-                v    := pair;
-
+                k, v := string.bisect(pair, #char "=");
                 req.cookies[k] = v;
 
                 string.advance(^value, 2);
@@ -141,12 +122,88 @@ parse_request :: (req: ^Request, r: ^io.Reader) {
         req.headers[header] = value;
     }
 
-    req.body = .{ r->read_all() };
+    parse_body(req, r);
+    return true;
 }
 
+#package
+parse_body :: (req: ^Request, r: ^io.Reader) {
+    req.body.request = req;
+
+    if req.headers->has("content-length") {
+        body_length := cast(u32) (req.headers["content-length"] |> conv.str_to_i64());
+        if body_length == 0 {
+            return;
+        }
+
+        body := make([] u8, body_length);
+        index := 0;
+        while index < body_length {
+            read, err := r->read_bytes(body[index .. body_length]);
+            index += read;
+        }
+
+        req.body.contents = body;
+    }
+}
+
+#package
+parse_url_encoded_key_value :: (dest: ^Map(str, str), input: ^str) {
+    @ErrorHandling
+    while !string.is_empty(*input) {
+        key   := string.read_until(input, #char "=") |> urldecode();
+        string.advance(input);
+        value := string.read_until(input, #char "&") |> urldecode();
+        string.advance(input);
+
+        dest->put(key, value);
+    }
+}
+
+#package
+parse_header :: #match #local {}
+
+#overload
+parse_header :: (r: ^io.Reader) -> (str, str) {
+    line := r->read_line();
+    if line == "\r\n" do return "", "";
+
+    return parse_header(^line);
+}
+
+#overload
+parse_header :: (line: ^str) -> (str, str) {
+    l := string.read_until(line, #char "\n");
+    string.advance_line(line);
+
+    header := string.read_until(^l, #char ":");
+    string.advance(^l, 2);
+
+    // Remove the \r\n that occurs at the end of the value.
+    value := l;
+    string.strip_trailing_whitespace(^value);
+
+    header = string.to_lowercase(header);
+
+    return header, value;
+}
+
+#inject
+Request_Body.is_json :: (body: ^Request_Body) -> bool {
+    content_type := body.request.headers["content-type"];
+
+    if content_type == "application/json" do return true;
+
+    if string.starts_with(content_type, "application/")
+        && string.ends_with(content_type, "+json") do return true;
+    
+    return false;
+}
 
 #inject
 Request_Body.json :: (body: ^Request_Body) -> json.Json {
+    if !body->is_json() do return .{};
+
     return json.decode(body.contents);
 }
 
@@ -161,5 +218,83 @@ Request_Body.json_as :: macro (body: ^Request_Body, $T: type_expr) -> T {
     json_to_struct(j.root, ^out);
 
     return out;
+}
+
+#inject
+Request_Body.is_form :: (body: ^Request_Body) -> bool {
+    content_type := body.request.headers["content-type"];
+    content_type  = string.read_until(^content_type, ";");
+    return content_type == "application/x-www-form-urlencoded"
+        || content_type == "multipart/form-data";
+}
+
+#inject
+Request_Body.form :: (body: ^Request_Body) -> Map(str, str) {
+    out := make(Map(str, str));
+
+    content_type := body.request.headers["content-type"];
+    content_type  = string.read_until(^content_type, ";");
+
+    content := body.contents;
+    switch content_type {
+        case "application/x-www-form-urlencoded" {
+            parse_url_encoded_key_value(^out, ^content);
+        }
+
+        case "multipart/form-data" {
+            parse_multipart_form_data(body.request, ^out);
+        }
+    }
+
+    return out;
+}
+
+#package
+parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
+    _, boundary_map := string.bisect(r.headers["content-type"], #char ";");
+    key, value      := string.bisect(boundary_map, #char "=");
+    string.strip_leading_whitespace(^key);
+    string.strip_leading_whitespace(^value);
+
+    if key != "boundary" {
+        return;
+    }
+
+    boundary := value;
+    if value[0] == #char "\"" {
+        // Remove "" if they are present around boundary name
+        boundary = value[1 .. value.length - 1];
+    }
+
+    boundary_delimiter := core.tprintf("--{}\r\n", boundary);
+
+    content := r.body.contents;
+    while true {
+        line := string.read_until(^content, #char "\n");
+        string.advance(^content, 1);
+        if content.length == 0 do break;
+
+        part_name := "";
+        while !string.starts_with(content, "\r\n") {
+            key, value := parse_header(^content);
+
+            if key == "content-disposition" {
+                string.strip_leading_whitespace(^value);
+                if !string.starts_with(value, "form-data;") do continue;
+                string.advance(^value, "form-data;".length);
+
+                string.strip_leading_whitespace(^value);
+                if !string.starts_with(value, "name=\"") do continue;
+                string.advance(^value, "name=\"".length);
+
+                part_name = string.read_until(^value, #char "\"");
+            }
+        }
+
+        part_value := string.read_until(^content, core.tprintf("\r\n--{}--", boundary))
+                      |> string.strip_leading_whitespace();
+
+        dest->put(part_name, part_value);
+    }
 }
 
