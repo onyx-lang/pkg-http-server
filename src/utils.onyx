@@ -160,7 +160,7 @@ set_mime_type :: (ext: str, type: str) {
 
 
 
-@Relocate
+// @Relocate
 #overload #precedence 1000
 json.encode :: (w: ^io.Writer, data: any) -> json.Encoding_Error {
     use runtime.info;

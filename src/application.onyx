@@ -59,10 +59,12 @@ application_serve :: (app: ^Application, port: u32) {
             defer {
                 alloc.heap.auto_heap_clear(^app.session_state);
                 context.allocator = old_allocator;
+
+                alloc.clear_temp_allocator();
             }
 
             ready_client := cast(^core.net.TCP_Event.Ready) it.data;
-            defer ready_client.client.recv_ready_event_present = false;
+            defer ready_client.client->read_complete();
 
             reader := io.reader_make(^ready_client.client.socket, greedy=true);
             defer io.reader_free(^reader);

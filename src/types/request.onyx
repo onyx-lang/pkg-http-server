@@ -39,7 +39,7 @@ Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, defau
     // as parameters will not be enclosed in
     // quotes.
 
-    @Cleanup
+    // @Cleanup
     // This uses type punning to escape the fact that
     // you have to return the correct type here. This
     // does not affect the runtime at all. Currently,
@@ -78,7 +78,7 @@ parse_request :: (req: ^Request, s: str) -> bool {
 
 #overload
 parse_request :: (req: ^Request, r: ^io.Reader) -> bool {
-    @ErrorHandling
+    // @ErrorHandling
     {
         request_line := r->read_line();
         if request_line.length == 0 do return false;
@@ -149,7 +149,7 @@ parse_body :: (req: ^Request, r: ^io.Reader) {
 
 #package
 parse_url_encoded_key_value :: (dest: ^Map(str, str), input: ^str) {
-    @ErrorHandling
+    // @ErrorHandling
     while !string.is_empty(*input) {
         key   := string.read_until(input, #char "=") |> urldecode();
         string.advance(input);
@@ -291,7 +291,7 @@ parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
             }
         }
 
-        part_value := string.read_until(^content, core.tprintf("\r\n--{}--", boundary))
+        part_value := string.read_until(^content, core.tprintf("\r\n--{}", boundary))
                       |> string.strip_leading_whitespace();
 
         dest->put(part_name, part_value);
