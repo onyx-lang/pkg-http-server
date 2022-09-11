@@ -26,6 +26,10 @@ Request_Body :: struct {
     request:  ^Request;
 }
 
+Request_Body_Form :: struct {
+    fields: Map(str, str);
+}
+
 
 #inject
 Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
@@ -229,7 +233,7 @@ Request_Body.is_form :: (body: ^Request_Body) -> bool {
 }
 
 #inject
-Request_Body.form :: (body: ^Request_Body) -> Map(str, str) {
+Request_Body.form :: (body: ^Request_Body) -> Request_Body_Form {
     out := make(Map(str, str));
 
     content_type := body.request.headers["content-type"];
@@ -246,7 +250,7 @@ Request_Body.form :: (body: ^Request_Body) -> Map(str, str) {
         }
     }
 
-    return out;
+    return .{ out };
 }
 
 #package
@@ -298,3 +302,21 @@ parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
     }
 }
 
+
+#inject
+Request_Body_Form.field :: macro (form: ^Request_Body_Form, $type: type_expr, field: str, default := type.{}) -> type {
+    if !(form.fields->has(field)) {
+        return default;
+    }
+
+    if type == str {
+        return form.fields[field];
+    }
+
+    v: type;
+    if core.conv.parse_any(^v, form.fields[field]) {
+        return v;
+    }
+
+    return default;
+}
