@@ -310,7 +310,7 @@ Request_Body_Form.field :: macro (form: ^Request_Body_Form, $type: type_expr, fi
     }
 
     if type == str {
-        return *cast(^str) ^form.fields[field];
+        return *cast(^type) ^form.fields[field];
     }
 
     v: type;
