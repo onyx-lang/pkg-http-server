@@ -84,6 +84,7 @@ application_serve :: (app: ^Application, port: u32) {
             }
 
             res: Response;
+            response_init(^res);
             defer response_free(^res);
 
             app.pipeline->process(^req, ^res);

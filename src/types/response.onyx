@@ -1,8 +1,11 @@
 package http
 
+use core {io}
+
 Response :: struct {
     status_code: u32;
-    contents: [] u8;
+    output: ^io.BufferStream;
+    writer: io.Writer;
 
     //
     // Apparently, this is not the best way to represent
@@ -21,14 +24,22 @@ Response :: struct {
     completed := false;
 }
 
+#package
+response_init :: (res: ^Response) {
+    res.writer, res.output = io.string_builder();
+}
+
+#inject
+Response.write :: macro (res: ^Response, data: $T) {
+    io.write(^res.writer, data);
+}
+
 #inject
 Response.json :: (res: ^Response, data: $T) {
     res.headers["Content-Type"] = "application/json";
 
-    encoded, err := json.encode_string(data);
-    if err == .None {
-        res.contents = encoded;
-    } else {
+    err := json.encode(^res.writer, data);
+    if err != .None {
         res.status_code = 500;
     }
 }
@@ -36,13 +47,13 @@ Response.json :: (res: ^Response, data: $T) {
 #inject
 Response.html :: (res: ^Response, html: [] u8) {
     res.headers["Content-Type"] = "text/html";
-    res.contents = html;
+    io.write(^res.writer, html);
 }
 
 #inject
 Response.body :: (res: ^Response, type: str, data: [] u8) {
     res.headers["Content-Type"] = type;
-    res.contents = data;
+    io.write(^res.writer, data);
 }
 
 #inject
@@ -51,7 +62,7 @@ Response.file :: (res: ^Response, path: str, type := "") {
         t := type if type != "" else guess_mime_type(path);
 
         res.headers["Content-Type"] = t;
-        res.contents = os.get_contents(path);
+        io.write(^res.writer, os.get_contents(path));
     } else {
         res.status_code = 404;
     }
@@ -82,6 +93,7 @@ Response.end :: macro (res: ^Response) {
 #package
 response_free :: (res: ^Response) {
     delete(^res.headers);
+    delete(res.output);
 
     // I'm choosing to omit the explicit deletion
     // of the contents generated for this response
@@ -94,7 +106,8 @@ response_free :: (res: ^Response) {
 
 #package
 response_finalize :: (res: ^Response) {
-    res.headers["Content-Length"] = core.tprintf("{}", res.contents.length);
+    content := string.as_str(res.output);
+    res.headers["Content-Length"] = core.tprintf("{}", content.length);
     res.headers["Server"] = "Onyx-Http";
 
     if res.status_code == 0 {
@@ -129,7 +142,7 @@ send_response :: (res: ^Response, s: ^io.Stream) {
 
     io.write(^w, "\r\n");
 
-    io.write(^w, res.contents);
+    io.write(^w, string.as_str(res.output));
 }
 
 #package

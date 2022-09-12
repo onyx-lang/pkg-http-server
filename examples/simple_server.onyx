@@ -16,7 +16,7 @@ Res.template :: (res: ^Res, file: str) {
     res->end();
 }
 
-#tag http.route.{.GET, "/test"}
+@http.route.{.GET, "/test"}
 (req: ^Req, res: ^Res) {
     v := req->query_param(i32, "val");
     name := req->query_param(str, "name");
@@ -25,7 +25,7 @@ Res.template :: (res: ^Res, file: str) {
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
 }
 
-#tag http.route.{.GET, "/json"}
+@http.route.{.GET, "/json"}
 (req: ^http.Request, res: ^http.Response) {
     V :: struct {x, y: i32}
 
@@ -39,7 +39,7 @@ Res.template :: (res: ^Res, file: str) {
     });
 }
 
-#tag http.route.{.GET, "/templated"}
+@http.route.{.GET, "/templated"}
 (req: ^Req, res: ^Res) {
     res->template("working!!");
 }
@@ -51,21 +51,21 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
     }
 }
 
-#tag http.route.{.GET, "/"}
-#tag http.middleware.{require_logon}
+@http.route.{.GET, "/"}
+@http.middleware.{require_logon}
 (req: ^http.Request, res: ^http.Response) {
     res->status(200);
     res->file("examples/index.html");
 }
 
-#tag http.route.{.POST, "/"}
+@http.route.{.POST, "/"}
 (req: ^http.Request, res: ^http.Response) {
     if req.body->is_form() {
         data := req.body->form();
 
         res->status(200);
 
-        html := core.tprintf("<h1>Hello, {}!</h1>", data["name"]);
+        html := core.tprintf("<h1>Hello, {}!</h1>", data->field(str, "name"));
         res->html(html);
 
         return;
@@ -74,13 +74,13 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
     res->status(400);
 }
 
-#tag http.route.{.GET, "/redirectme"}
+@http.route.{.GET, "/redirectme"}
 (req: ^http.Request, res: ^http.Response) {
     res->cookie("redirected", "true");
     res->redirect("/test");
 }
 
-#tag http.route.{.GET, "/locked"}
+@http.route.{.GET, "/locked"}
 (req: ^http.Request, res: ^http.Response) {
     if req.headers->has("authorization") {
         auth := req.headers["authorization"];
@@ -110,7 +110,7 @@ Input :: struct {
     data: [] u32;
 }
 
-#tag http.route.{.POST, "/json"}
+@http.route.{.POST, "/json"}
 (req: ^Req, res: ^Res) {
     input := req.body->json_as(Input);
     core.println(input);
