@@ -299,6 +299,8 @@ parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
                       |> string.strip_leading_whitespace();
 
         dest->put(part_name, part_value);
+
+        string.advance_line(^content);
     }
 }
 
