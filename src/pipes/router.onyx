@@ -72,6 +72,8 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: H
         pattern = .{ route },
         pipeline = pipes,
     };
+
+    sort_routes(router);
 }
 
 #overload
@@ -81,6 +83,9 @@ router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pip
         pattern = .{ route },
         pipeline = pipeline,
     };
+
+    sort_routes :: sort_routes
+    sort_routes(router);
 }
 
 #overload
@@ -98,6 +103,9 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $
         pattern = .{ route },
         pipeline = pipes,
     };
+    
+    sort_routes :: sort_routes
+    sort_routes(router);
 }
 
 #overload
@@ -110,6 +118,9 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, steps: ..
         pattern = .{ route },
         pipeline = pipes,
     };
+    
+    sort_routes :: sort_routes
+    sort_routes(router);
 }
 
 
@@ -136,6 +147,15 @@ router_collect_routes :: (router: ^Router, pack := builtin.any_package) {
 
         router_add_route(router, it.tag.method, it.tag.route, pipes);
     }
+}
+
+#local
+sort_routes :: (router: ^Router) {
+    core.array.sort(router.routes, (a, b) => {
+        x1 := core.array.count_where(a.pattern.route, #(it == #char "/"));
+        x2 := core.array.count_where(b.pattern.route, #(it == #char "/"));
+        return x2 - x1;
+    });
 }
 
 
