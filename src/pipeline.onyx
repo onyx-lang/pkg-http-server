@@ -36,7 +36,7 @@ pipeline_add_step :: (p: ^Pipeline, s: HTTP_Handler) {
 }
 
 #overload
-pipeline_add_step :: (p: ^Pipeline, s: $T) where Pipeable(T) {
+pipeline_add_step :: (p: ^Pipeline, s: $T/Pipeable) {
     step := convert_to_pipe(s);
     p.steps << step;
 }
