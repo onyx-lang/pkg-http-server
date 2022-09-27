@@ -83,12 +83,12 @@ router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pip
 }
 
 #overload
-router_add_route :: macro (router: ^Router, route: str, handle: $T) where Pipeable(T) {
+router_add_route :: macro (router: ^Router, route: str, handle: $T/Pipeable) {
     router->route(.ALL, route, handle);
 }
 
 #overload
-router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $T) where Pipeable(T) {
+router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $T/Pipeable) {
     pipes := pipeline();
     pipes->add(handle);
 

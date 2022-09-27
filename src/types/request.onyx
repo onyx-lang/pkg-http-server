@@ -154,7 +154,7 @@ parse_body :: (req: ^Request, r: ^io.Reader) {
 #package
 parse_url_encoded_key_value :: (dest: ^Map(str, str), input: ^str) {
     // @ErrorHandling
-    while !string.is_empty(*input) {
+    while !string.empty(*input) {
         key   := string.read_until(input, #char "=") |> urldecode();
         string.advance(input);
         value := string.read_until(input, #char "&") |> urldecode();
