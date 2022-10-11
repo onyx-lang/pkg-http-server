@@ -22,6 +22,7 @@ static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Resp
     if !os.file_exists(full_path) || !os.is_file(full_path) {
         res->status(404);
         res->end();
+        return;
     }
 
     contents := os.get_contents(full_path);
