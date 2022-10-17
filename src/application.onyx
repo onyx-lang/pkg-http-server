@@ -4,7 +4,7 @@ Application :: struct {
     server: ^net.TCP_Server;
     pipeline: Pipeline;
 
-    session_state:     alloc.heap.AutoHeapState;
+    session_state:     alloc.gc.GCState;
     session_allocator: Allocator;
 
     pipe  :: application_pipe;
@@ -35,7 +35,7 @@ application_pipe :: (app: ^Application, s: $T) {
 #package
 application_serve :: (app: ^Application, port: u32) {
             
-    app.session_state = alloc.heap.auto_heap_make();
+    app.session_state = alloc.gc.make();
     app.session_allocator = alloc.as_allocator(^app.session_state);
 
     app.server = net.tcp_server_make(max_clients=4);
@@ -57,7 +57,7 @@ application_serve :: (app: ^Application, port: u32) {
             old_allocator := context.allocator;
             context.allocator = app.session_allocator;
             defer {
-                alloc.heap.auto_heap_clear(^app.session_state);
+                alloc.gc.clear(^app.session_state);
                 context.allocator = old_allocator;
 
                 alloc.clear_temp_allocator();
