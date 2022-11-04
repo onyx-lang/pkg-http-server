@@ -34,17 +34,24 @@ application_pipe :: (app: ^Application, s: $T) {
 
 #package
 application_serve :: (app: ^Application, port: u32) {
-            
     app.session_state = alloc.gc.make();
     app.session_allocator = alloc.as_allocator(^app.session_state);
 
     app.server = net.tcp_server_make(max_clients=4);
     app.server.emit_data_events = false;
 
-    while !(app.server->listen(~~port)) {
+    // Allows the server to be immediately restarted. Not
+    // the safest, but it is fine for a development instance.
+    app.server.socket->setting(.ReuseAddress, 1);
+
+    if !(app.server->listen(~~port)) {
         core.printf("Failed to bind to port {}.\n", port);
-        port += 1;
+        os.exit(1);
     }
+
+     os.register_fault_handler(app, (app: ^Application) {
+         app.server->stop();
+     });
 
     log(core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
