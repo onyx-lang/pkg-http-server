@@ -34,7 +34,7 @@ route :: struct {
 }
 
 middleware :: struct {
-    func: HTTP_Handler; 
+    func: HTTP_Handler;
 }
 
 router :: (base_path := "") -> Router {
@@ -42,7 +42,7 @@ router :: (base_path := "") -> Router {
 
     r.base_path = base_path;
     r.routes    = make([..] Route, allocator=long_term_allocator);
-    
+
     return r;
 }
 
@@ -61,7 +61,7 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: H
     pipes := pipeline();
     pipes->add(handle);
 
-    router.routes << .{ 
+    router.routes << Route.{
         method = method,
         pattern = route,
         pipeline = pipes,
@@ -72,7 +72,8 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: H
 
 #overload
 router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
-    router.routes << .{ 
+    Route :: Route
+    router.routes << Route.{
         method = method,
         pattern = route,
         pipeline = pipeline,
@@ -92,12 +93,12 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $
     pipes := pipeline();
     pipes->add(handle);
 
-    router.routes << .{ 
+    router.routes << Route.{
         method = method,
         pattern = route,
         pipeline = pipes,
     };
-    
+
     sort_routes :: sort_routes
     sort_routes(router);
 }
@@ -107,12 +108,12 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, steps: ..
     pipes := pipeline();
     for steps do pipes->add(it);
 
-    router.routes << .{ 
+    router.routes << Route.{
         method = method,
         pattern = route,
         pipeline = pipes,
     };
-    
+
     sort_routes :: sort_routes
     sort_routes(router);
 }

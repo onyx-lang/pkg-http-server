@@ -11,7 +11,7 @@ HTTP_Method :: enum {
     OPTIONS;
     TRACE;
     PATCH;
-    
+
     ALL;
 }
 
@@ -150,7 +150,7 @@ set_mime_type :: (ext: str, type: str) {
 
     prepare_allocators :: #init () {
         long_term_allocator = context.allocator;
-        short_term_arena = arena.make(long_term_allocator, 1 * 1024 * 1024); 
+        short_term_arena = arena.make(long_term_allocator, 1 * 1024 * 1024);
         short_term_allocator = arena.make_allocator(^short_term_arena);
 
         known_mimetypes->init();
@@ -237,12 +237,12 @@ json.encode :: (w: ^io.Writer, data: any) -> json.Encoding_Error {
 Json_Key :: struct {key: str;}
 
 json_to_struct :: #match {
-    macro (value: ^json.Value, out: ^$T) {
+    macro (value: json.Value, out: ^$T) {
         json_to_struct :: json_to_struct
         json_to_struct(value, T, cast(rawptr) out);
     },
 
-    (value: ^json.Value, type: type_expr, out: rawptr) {
+    (value: json.Value, type: type_expr, out: rawptr) {
         use runtime.info;
 
         t_info := get_type_info(type);
