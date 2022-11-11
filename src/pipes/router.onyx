@@ -149,7 +149,12 @@ sort_routes :: (router: ^Router) {
     core.array.sort(router.routes, (a, b) => {
         x1 := core.array.count_where(a.pattern, #(it == #char "/"));
         x2 := core.array.count_where(b.pattern, #(it == #char "/"));
-        return x2 - x1;
+
+        if x1 == x2 {
+            return b.pattern.length - a.pattern.length;
+        } else {
+            return x2 - x1;
+        }
     });
 }
 

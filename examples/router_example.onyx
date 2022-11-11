@@ -14,10 +14,16 @@ main :: () {
     });
 
     // You can also call get, post, etc. directly.
+    router->get("/test_but_longer", (req, res) => {
+        res->status(200);
+        res->html("Test but longer");
+    });
+
     router->get("/test", (req, res) => {
         res->status(200);
-        res->html("Test");  
+        res->html("Test");
     });
+
 
     app->pipe(^router);
     app->serve(8080);
