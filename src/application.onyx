@@ -49,9 +49,10 @@ application_serve :: (app: ^Application, port: u32) {
         os.exit(1);
     }
 
-     os.register_fault_handler(app, (app: ^Application) {
-         app.server->stop();
-     });
+    os.register_fault_handler(app, (app: ^Application) {
+        log(core.tprintf("Stopping HTTP server..."));
+        app.server->stop();
+    });
 
     log(core.tprintf("Serving on port {}", port));
     app.server->handle_events() {

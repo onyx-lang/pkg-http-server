@@ -213,13 +213,11 @@ Request_Body.json :: (body: ^Request_Body) -> json.Json {
 
 #inject
 Request_Body.json_as :: macro (body: ^Request_Body, $T: type_expr) -> T {
-    json_to_struct :: json_to_struct
-
     j := json.decode(body.contents);
     defer json.free(j);
 
     out: T;
-    json_to_struct(j.root, ^out);
+    json.to_any(j.root, ^out);
 
     return out;
 }
