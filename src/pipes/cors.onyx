@@ -1,0 +1,19 @@
+package http
+
+cors :: struct {}
+
+#local
+cors_handler :: (_: rawptr, req: ^Request, res: ^Response) {
+    if req.method == .OPTIONS {
+        res.headers["Access-Control-Allow-Origin"] = "*";
+        res.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS";
+        res.headers["Access-Control-Allow-Headers"] = req.headers["Access-Control-Allow-Headers"];
+        res.headers["Access-Control-Max-Age"] = "86400";
+        res->status(204);
+        res->end();
+    }
+}
+
+#overload
+convert_to_pipe :: (c: ^cors) => Pipe.{cors_handler, null};
+
