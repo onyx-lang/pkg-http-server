@@ -94,6 +94,7 @@ Response.end :: macro (res: ^Response) {
 response_free :: (res: ^Response) {
     delete(^res.headers);
     delete(res.output);
+    io.writer_free(^res.writer);
 
     // I'm choosing to omit the explicit deletion
     // of the contents generated for this response
@@ -143,6 +144,7 @@ send_response :: (res: ^Response, s: ^io.Stream) {
     io.write(^w, "\r\n");
 
     io.write(^w, string.as_str(res.output));
+    io.writer_free(^w);
 }
 
 #package

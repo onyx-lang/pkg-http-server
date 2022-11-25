@@ -23,6 +23,7 @@ logger_log_request :: (l: ^Logger, req: ^Request, res: ^Response) {
         req.headers["host"], req.base_endpoint,
         res.status_code);
 
+    io.writer_flush(^l.writer);
     io.stream_flush(l.writer.stream);
 }
 
