@@ -62,11 +62,11 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
     defer iter.close(i);
 
     for #no_close ch: i {
-        if *ch == #char "%" {
+        if ch == #char "%" {
             a, e  := iter.take_one(i, no_close=true);
             b, e' := iter.take_one(i, no_close=true);
 
-            n := u8.[*a, *b];
+            n := u8.[a, b];
 
             v := conv.str_to_i64(n, base=16);
             switch v {
@@ -96,7 +96,7 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
                 }
             }
 
-        } elseif *ch == #char "+" {
+        } elseif ch == #char "+" {
             out << #char " ";
         } else {
             out << *ch;
