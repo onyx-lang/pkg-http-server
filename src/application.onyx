@@ -45,16 +45,16 @@ application_serve :: (app: ^Application, port: u32) {
     app.server.socket->setting(.ReuseAddress, 1);
 
     if !(app.server->listen(~~port)) {
-        core.printf("Failed to bind to port {}.\n", port);
+        log(.Error, core.tprintf("Failed to bind to port {}.\n", port));
         os.exit(1);
     }
 
     os.register_fault_handler(app, (app: ^Application) {
-        log(core.tprintf("Stopping HTTP server..."));
+        log(.Info, "Stopping HTTP server...");
         app.server->stop();
     });
 
-    log(core.tprintf("Serving on port {}", port));
+    log(.Info, core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
         case .Connection {
             // Enable non-blocking communication on all sockets
