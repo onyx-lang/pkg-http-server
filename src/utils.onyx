@@ -58,7 +58,7 @@ urlencode :: (s: str, allocator := context.allocator) -> str {
 urldecode :: (s: str, allocator := context.allocator) -> str {
     out := make([..] u8, s.count, allocator=allocator);
 
-    i := iter.as_iterator(s);
+    i := iter.as_iter(s);
     defer iter.close(i);
 
     for #no_close ch: i {
