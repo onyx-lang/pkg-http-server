@@ -74,7 +74,7 @@ application_serve :: (app: ^Application, port: u32) {
             ready_client := cast(^core.net.TCP_Event.Ready) it.data;
             defer ready_client.client->read_complete();
 
-            reader := io.reader_make(^ready_client.client.socket, greedy=true);
+            reader := io.reader_make(^ready_client.client.socket);
             defer io.reader_free(^reader);
 
             req: Request;
