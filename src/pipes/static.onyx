@@ -4,12 +4,13 @@ package http
 Static_File_Router :: struct {
     base_route: str;
     base_path:  str;
+    cache_duration: u32;
 
     handle :: static_file_router_handle 
 }
 
-static :: (route, path: str) -> Static_File_Router {
-    return .{ route, path }; 
+static :: (route, path: str, cache_duration := 3600) -> Static_File_Router {
+    return .{ route, path, cache_duration }; 
 }
 
 #package
@@ -28,6 +29,7 @@ static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Resp
     contents := os.get_contents(full_path);
 
     res->status(200);
+    res.headers["Cache-Control"] = core.tprintf("max-age={};", sf.cache_duration);
     res->body(http.guess_mime_type(full_path), contents);
     res->end();
 }

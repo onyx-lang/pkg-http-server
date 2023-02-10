@@ -12,9 +12,10 @@ Request :: struct {
     base_endpoint: str;
     endpoint: str;
 
-    headers: Map(str, str);
-    query:   Map(str, str);
-    cookies: Map(str, str);
+    headers:    Map(str, str);
+    query:      Map(str, str);
+    cookies:    Map(str, str);
+    url_params: Map(str, str);
 
     address: net.Socket_Address;
 
