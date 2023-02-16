@@ -6,7 +6,7 @@ Logger :: struct {
     log :: logger_log_request
 }
 
-logger :: (s: ^io.Stream = ^core.stdio_stream) -> Logger {
+logger :: (s: ^io.Stream = ^core.stdio.stream) -> Logger {
     return .{
         io.writer_make(s)
     };
