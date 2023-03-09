@@ -71,7 +71,7 @@ convert_to_pipe :: macro (h: HTTP_Handler) => {
         (*f)(req, res);
     }
 
-    f := make(typeof h, allocator=long_term_allocator);
+    f := new(typeof h, allocator=long_term_allocator);
     *f = h;
     return Pipe.{ handler, f };
 }
