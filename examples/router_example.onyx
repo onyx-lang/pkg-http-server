@@ -3,9 +3,9 @@
 
 // A typical HTTP application
 main :: () {
-    app := http.application();
+    app := http.server.application();
 
-    router := http.router();
+    router := http.server.router();
 
     // You can specify the HTTP Method using the enum value.
     router->route(.GET, "/index", (req, res) => {
@@ -25,7 +25,7 @@ main :: () {
     });
 
 
-    app->pipe(^router);
+    app->pipe(&router);
     app->serve(8080);
 }
 

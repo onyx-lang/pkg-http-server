@@ -1,4 +1,4 @@
-package http
+package http.server
 
 Logger :: struct {
     writer: io.Writer;
@@ -6,29 +6,29 @@ Logger :: struct {
     log :: logger_log_request
 }
 
-logger :: (s: ^io.Stream = ^core.stdio.stream) -> Logger {
+logger :: (s: &io.Stream = &core.stdio.stream) -> Logger {
     return .{
         io.writer_make(s)
     };
 }
 
 #package
-logger_log_request :: (l: ^Logger, req: ^Request, res: ^Response) {
+logger_log_request :: (l: &Logger, req: &Request, res: &Response) {
     // This should have the ability to change the logging format.
     io.write_format(
-        ^l.writer,
+        &l.writer,
         "{} {} {}{} - {}\n",
         req.address->addr_as_str(),
         req.method,
         req.headers["host"], req.base_endpoint,
         res.status_code);
 
-    io.writer_flush(^l.writer);
+    io.writer_flush(&l.writer);
     io.stream_flush(l.writer.stream);
 }
 
 #overload
-convert_to_pipe :: macro (l: ^Logger) => Pipe.{
+convert_to_pipe :: macro (l: &Logger) => Pipe.{
     logger_log_request,
     l,
     execute_after_request = true,

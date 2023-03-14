@@ -10,7 +10,7 @@ use http {
 }
 
 #tag http.route.{.GET, "/index"}
-(req: ^Req, res: ^Res) {
+(req: &Req, res: &Res) {
     res->status(200);
     res->html("From a tag!");
 }
@@ -21,7 +21,7 @@ main :: () {
     router := http.router();
     router->collect_routes();
 
-    app->pipe(^router);
+    app->pipe(&router);
     app->serve(8080);
 }
 

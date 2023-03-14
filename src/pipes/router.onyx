@@ -1,4 +1,4 @@
-package http
+package http.server
 
 Router :: struct {
     routes: [..] Route;
@@ -19,7 +19,7 @@ Router :: struct {
     route_request :: router_route_request
 }
 
-HTTP_Handler :: #type (^Request, ^Response) -> void;
+HTTP_Handler :: #type (&Request, &Response) -> void;
 
 #package
 Route :: struct {
@@ -57,7 +57,7 @@ router_add_route :: #match #local {}
 // correct behavior and may be due to an underlying compiler
 // bug. Either way, for now this overload has to be here.
 #overload
-router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
     pipes := pipeline();
     pipes->add(handle);
 
@@ -71,7 +71,7 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: H
 }
 
 #overload
-router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
+router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
     Route :: Route
     router.routes << Route.{
         method = method,
@@ -84,12 +84,12 @@ router_add_route :: macro (router: ^Router, method: HTTP_Method, route: str, pip
 }
 
 #overload
-router_add_route :: macro (router: ^Router, route: str, handle: $T/Pipeable) {
+router_add_route :: macro (router: &Router, route: str, handle: $T/Pipeable) {
     router->route(.ALL, route, handle);
 }
 
 #overload
-router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $T/Pipeable) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: $T/Pipeable) {
     pipes := pipeline();
     pipes->add(handle);
 
@@ -104,7 +104,7 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, handle: $
 }
 
 #overload
-router_add_route :: (router: ^Router, method: HTTP_Method, route: str, steps: ..Pipe) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, steps: ..Pipe) {
     pipes := pipeline();
     for steps do pipes->add(it);
 
@@ -120,12 +120,12 @@ router_add_route :: (router: ^Router, method: HTTP_Method, route: str, steps: ..
 
 
 #local
-__quick_route :: (router: ^Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) {
+__quick_route :: (router: &Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) {
     router_add_route(router, method, route, handle);
 }
 
 #package
-router_collect_routes :: (router: ^Router, pack := builtin.any_package) {
+router_collect_routes :: (router: &Router, pack := builtin.any_package) {
     procs := runtime.info.get_procedures_with_tag(route);
     for procs {
         if pack != any_package && pack != it.pack do continue;
@@ -133,19 +133,19 @@ router_collect_routes :: (router: ^Router, pack := builtin.any_package) {
         pipes := pipeline();
         for tag: runtime.info.get_tags_for_procedure(it.func) {
             if tag.type == middleware {
-                mw := cast(^middleware) tag.data;
+                mw := cast(&middleware) tag.data;
                 pipes->add(mw.func);
             }
         }
 
-        pipes->add(*cast(^HTTP_Handler) ^it.func);
+        pipes->add(*cast(&HTTP_Handler) &it.func);
 
         router_add_route(router, it.tag.method, it.tag.route, pipes);
     }
 }
 
 #local
-sort_routes :: (router: ^Router) {
+sort_routes :: (router: &Router) {
     core.array.sort(router.routes, (a, b) => {
         x1 := core.array.count_where(a.pattern, #(it == #char "/"));
         x2 := core.array.count_where(b.pattern, #(it == #char "/"));
@@ -160,7 +160,7 @@ sort_routes :: (router: ^Router) {
 
 
 #package
-router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
+router_route_request :: (router: &Router, req: &Request, res: &Response) {
     if !string.starts_with(req.endpoint, router.base_path) {
         return;
     }
@@ -170,7 +170,7 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
 
     req.endpoint = req.endpoint[router.base_path.length .. req.endpoint.length];
 
-    for^ router.routes {
+    for& router.routes {
         if it.method != .ALL && it.method != req.method do continue;
 
         //
@@ -202,4 +202,4 @@ router_route_request :: (router: ^Router, req: ^Request, res: ^Response) {
 
 
 #overload
-convert_to_pipe :: macro (r: ^Router) => Pipe.{router_route_request, r};
+convert_to_pipe :: macro (r: &Router) => Pipe.{router_route_request, r};

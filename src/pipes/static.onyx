@@ -1,4 +1,4 @@
-package http
+package http.server
 
 
 Static_File_Router :: struct {
@@ -14,7 +14,7 @@ static :: (route, path: str, cache_duration := 3600) -> Static_File_Router {
 }
 
 #package
-static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Response) {
+static_file_router_handle :: (sf: &Static_File_Router, req: &Request, res: &Response) {
     if !string.starts_with(req.endpoint, sf.base_route) do return;
 
     file_path := req.endpoint[sf.base_route.count .. req.endpoint.count];
@@ -30,9 +30,9 @@ static_file_router_handle :: (sf: ^Static_File_Router, req: ^Request, res: ^Resp
 
     res->status(200);
     res.headers["Cache-Control"] = core.tprintf("max-age={};", sf.cache_duration);
-    res->body(http.guess_mime_type(full_path), contents);
+    res->body(guess_mime_type(full_path), contents);
     res->end();
 }
 
 #overload
-convert_to_pipe :: macro (sf: ^Static_File_Router) => Pipe.{ sf.handle, sf };
+convert_to_pipe :: macro (sf: &Static_File_Router) => Pipe.{ sf.handle, sf };

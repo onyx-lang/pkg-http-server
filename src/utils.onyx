@@ -1,4 +1,4 @@
-package http
+package http.server
 
 HTTP_Method :: enum {
     UNKNOWN;
@@ -151,7 +151,7 @@ set_mime_type :: (ext: str, type: str) {
     prepare_allocators :: #init () {
         long_term_allocator = context.allocator;
         short_term_arena = arena.make(long_term_allocator, 1 * 1024 * 1024);
-        short_term_allocator = arena.make_allocator(^short_term_arena);
+        short_term_allocator = arena.make_allocator(&short_term_arena);
 
         known_mimetypes->init();
     }

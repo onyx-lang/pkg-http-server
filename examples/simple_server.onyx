@@ -3,21 +3,22 @@
 #load_path "./lib"
 #load "./module"
 
-use http {
+use http.server {
     Req :: Request,
     Res :: Response,
+    Route :: route
 }
 
 #inject
-Res.template :: (res: ^Res, file: str) {
+Res.template :: (res: &Res, file: str) {
     core.printf("Responding to request with template: {}\n", file);
     res->status(200);
     res->body("", "text/html");
     res->end();
 }
 
-@http.route.{.GET, "/test"}
-(req: ^Req, res: ^Res) {
+@Route.{.GET, "/test"}
+(req: &Req, res: &Res) {
     v := req->query_param(i32, "val");
     name := req->query_param(str, "name");
 
@@ -25,8 +26,8 @@ Res.template :: (res: ^Res, file: str) {
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
 }
 
-@http.route.{.GET, "/json"}
-(req: ^http.Request, res: ^http.Response) {
+@Route.{.GET, "/json"}
+(req: &Req, res: &Res) {
     V :: struct {x, y: i32}
 
     res->status(200);
@@ -39,27 +40,27 @@ Res.template :: (res: ^Res, file: str) {
     });
 }
 
-@http.route.{.GET, "/templated"}
-(req: ^Req, res: ^Res) {
+@Route.{.GET, "/templated"}
+(req: &Req, res: &Res) {
     res->template("working!!");
 }
 
-require_logon :: (req: ^http.Request, res: ^http.Response) {
+require_logon :: (req: &Req, res: &Res) {
     if !(req.cookies->has("redirected")) {
         res->redirect("/redirectme");
         res->end();
     }
 }
 
-@http.route.{.GET, "/"}
-@http.middleware.{require_logon}
-(req: ^http.Request, res: ^http.Response) {
+@Route.{.GET, "/"}
+@http.server.middleware.{require_logon}
+(req: &Req, res: &Res) {
     res->status(200);
     res->file("examples/index.html");
 }
 
-@http.route.{.POST, "/"}
-(req: ^http.Request, res: ^http.Response) {
+@Route.{.POST, "/"}
+(req: &Req, res: &Res) {
     if req.body->is_form() {
         data := req.body->form();
 
@@ -74,22 +75,22 @@ require_logon :: (req: ^http.Request, res: ^http.Response) {
     res->status(400);
 }
 
-@http.route.{.GET, "/redirectme"}
-(req: ^http.Request, res: ^http.Response) {
+@Route.{.GET, "/redirectme"}
+(req: &Req, res: &Res) {
     res->cookie("redirected", "true");
     res->redirect("/test");
 }
 
-@http.route.{.GET, "/locked"}
-(req: ^http.Request, res: ^http.Response) {
+@Route.{.GET, "/locked"}
+(req: &Req, res: &Res) {
     if req.headers->has("authorization") {
         auth := req.headers["authorization"];
 
         if core.string.starts_with(auth, "Basic ") {
-            core.string.advance(^auth, "Basic ".length);
+            core.string.advance(&auth, "Basic ".length);
 
-            creds := base64.decode(auth);
-            defer delete(^creds);
+            creds := core.encoding.base64.decode(auth);
+            defer delete(&creds);
 
             user, pass := core.string.bisect(creds, #char ":");
             core.printf("User: {}\nPass: {}\n", user, pass);
@@ -110,8 +111,8 @@ Input :: struct {
     data: [] u32;
 }
 
-@http.route.{.POST, "/json"}
-(req: ^Req, res: ^Res) {
+@Route.{.POST, "/json"}
+(req: &Req, res: &Res) {
     input := req.body->json_as(Input);
     core.println(input);
 
@@ -120,15 +121,15 @@ Input :: struct {
 }
 
 main :: () {
-    app := http.application();
+    app := http.server.application();
 
-    static := http.static("/static", "examples/static");
-    app->pipe(^static);
+    static := http.server.static("/static", "examples/static");
+    app->pipe(&static);
 
-    router := http.router();
+    router := http.server.router();
     router->collect_routes();
 
-    inner_router := http.router();
+    inner_router := http.server.router();
     inner_router->get("/", (req, res) => {
         res->status(200);
         res->html("<h1>Inner Index page!</h1>");
@@ -141,12 +142,12 @@ main :: () {
         res->end();
     });
 
-    router->route("/inner", ^inner_router);
+    router->route("/inner", &inner_router);
 
-    app->pipe(^router);
+    app->pipe(&router);
 
-    logger := http.logger();
-    app->pipe(^logger);
+    logger := http.server.logger();
+    app->pipe(&logger);
 
     app->serve(8080);
 }

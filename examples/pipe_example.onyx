@@ -4,7 +4,7 @@
 use core
 
 main :: () {
-    p := http.pipeline();
+    p := http.server.pipeline();
 
     p->add((req, res) => {
         printf("{} was requested!\n", req.base_endpoint);
@@ -15,8 +15,8 @@ main :: () {
         res->html("Working!");
     });
 
-    app := http.application();
-    app->pipe(^p);
+    app := http.server.application();
+    app->pipe(&p);
     app->serve(8080);
 }
 

@@ -1,7 +1,7 @@
-package http
+package http.server
 
 Request :: struct {
-    app: ^Application;
+    app: &Application;
 
     method: HTTP_Method;
 
@@ -24,7 +24,7 @@ Request :: struct {
 
 Request_Body :: struct {
     contents: str;
-    request:  ^Request;
+    request:  &Request;
 }
 
 Request_Body_Form :: struct {
@@ -33,7 +33,7 @@ Request_Body_Form :: struct {
 
 
 #inject
-Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, default := type.{}) -> type {
+Request.query_param :: macro (req: &Request, $type: type_expr, param: str, default := type.{}) -> type {
     if !(req.query->has(param)) {
         return default;
     }
@@ -51,11 +51,11 @@ Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, defau
     // #if does not work with compile time parameters
     // in macros which is why this is necessary.
     if type == str {
-        return *cast(^type) ^req.query[param];
+        return *cast(&type) &req.query[param];
     }
 
     v: type;
-    if core.conv.parse_any(^v, req.query[param]) {
+    if core.conv.parse_any(&v, req.query[param]) {
         return v;
     }
 
@@ -63,46 +63,46 @@ Request.query_param :: macro (req: ^Request, $type: type_expr, param: str, defau
 }
 
 #package
-request_free :: (req: ^Request) {
-    delete(^req.headers);
-    delete(^req.query);
-    delete(^req.cookies);
+request_free :: (req: &Request) {
+    delete(&req.headers);
+    delete(&req.query);
+    delete(&req.cookies);
 }
 
 
 parse_request :: #match #local {}
 
 #overload
-parse_request :: (req: ^Request, s: str) -> bool {
+parse_request :: (req: &Request, s: str) -> bool {
     stream := io.buffer_stream_make(s, fixed=true, write_enabled=false);
-    r := io.reader_make(^stream);
-    defer io.reader_free(^r);
+    r := io.reader_make(&stream);
+    defer io.reader_free(&r);
     
-    return parse_request(req, ^r);
+    return parse_request(req, &r);
 }
 
 #overload
-parse_request :: (req: ^Request, r: ^io.Reader) -> bool {
+parse_request :: (req: &Request, r: &io.Reader) -> bool {
     // @ErrorHandling
     {
         request_line := r->read_line();
         if request_line.length == 0 do return false;
 
-        method := string.read_until(^request_line, #char " ");
-        string.advance(^request_line);
+        method := string.read_until(&request_line, #char " ");
+        string.advance(&request_line);
 
         m := core.array.first(runtime.info.enum_values(HTTP_Method), #(it.name == method));
         if m == null do req.method = .UNKNOWN;
         else         do req.method = ~~m.value;
 
-        route := string.read_until(^request_line, #char " ");
-        string.advance(^request_line);
+        route := string.read_until(&request_line, #char " ");
+        string.advance(&request_line);
 
-        req.endpoint = string.read_until(^route, #char "?");
+        req.endpoint = string.read_until(&route, #char "?");
         req.base_endpoint = req.endpoint;
-        string.advance(^route);
+        string.advance(&route);
 
-        parse_url_encoded_key_value(^req.query, ^route);
+        parse_url_encoded_key_value(&req.query, &route);
     }
 
     while true {
@@ -112,13 +112,13 @@ parse_request :: (req: ^Request, r: ^io.Reader) -> bool {
         if header == "cookie" {
             // Parse cookies
             while true {
-                pair := string.read_until(^value, "; ");
+                pair := string.read_until(&value, "; ");
                 if pair.count == 0 do break;
 
                 k, v := string.bisect(pair, #char "=");
                 req.cookies[k] = v;
 
-                string.advance(^value, 2);
+                string.advance(&value, 2);
             }
 
             continue;
@@ -132,7 +132,7 @@ parse_request :: (req: ^Request, r: ^io.Reader) -> bool {
 }
 
 #package
-parse_body :: (req: ^Request, r: ^io.Reader) {
+parse_body :: (req: &Request, r: &io.Reader) {
     req.body.request = req;
 
     if req.headers->has("content-length") {
@@ -153,7 +153,7 @@ parse_body :: (req: ^Request, r: ^io.Reader) {
 }
 
 #package
-parse_url_encoded_key_value :: (dest: ^Map(str, str), input: ^str) {
+parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
     // @ErrorHandling
     while !string.empty(*input) {
         key   := string.read_until(input, #char "=") |> urldecode();
@@ -169,24 +169,24 @@ parse_url_encoded_key_value :: (dest: ^Map(str, str), input: ^str) {
 parse_header :: #match #local {}
 
 #overload
-parse_header :: (r: ^io.Reader) -> (str, str) {
+parse_header :: (r: &io.Reader) -> (str, str) {
     line := r->read_line();
     if line == "\r\n" do return "", "";
 
-    return parse_header(^line);
+    return parse_header(&line);
 }
 
 #overload
-parse_header :: (line: ^str) -> (str, str) {
+parse_header :: (line: &str) -> (str, str) {
     l := string.read_until(line, #char "\n");
     string.advance_line(line);
 
-    header := string.read_until(^l, #char ":");
-    string.advance(^l, 2);
+    header := string.read_until(&l, #char ":");
+    string.advance(&l, 2);
 
     // Remove the \r\n that occurs at the end of the value.
     value := l;
-    string.strip_trailing_whitespace(^value);
+    string.strip_trailing_whitespace(&value);
 
     header = string.to_lowercase(header);
 
@@ -194,7 +194,7 @@ parse_header :: (line: ^str) -> (str, str) {
 }
 
 #inject
-Request_Body.is_json :: (body: ^Request_Body) -> bool {
+Request_Body.is_json :: (body: &Request_Body) -> bool {
     content_type := body.request.headers["content-type"];
 
     if content_type == "application/json" do return true;
@@ -206,46 +206,46 @@ Request_Body.is_json :: (body: ^Request_Body) -> bool {
 }
 
 #inject
-Request_Body.json :: (body: ^Request_Body) -> json.Json {
+Request_Body.json :: (body: &Request_Body) -> json.Json {
     if !(body->is_json()) do return .{};
 
     return json.decode(body.contents);
 }
 
 #inject
-Request_Body.json_as :: macro (body: ^Request_Body, $T: type_expr) -> T {
+Request_Body.json_as :: macro (body: &Request_Body, $T: type_expr) -> T {
     j := json.decode(body.contents);
     defer json.free(j);
 
     out: T;
-    json.to_any(j.root, ^out);
+    json.to_any(j.root, &out);
 
     return out;
 }
 
 #inject
-Request_Body.is_form :: (body: ^Request_Body) -> bool {
+Request_Body.is_form :: (body: &Request_Body) -> bool {
     content_type := body.request.headers["content-type"];
-    content_type  = string.read_until(^content_type, ";");
+    content_type  = string.read_until(&content_type, ";");
     return content_type == "application/x-www-form-urlencoded"
         || content_type == "multipart/form-data";
 }
 
 #inject
-Request_Body.form :: (body: ^Request_Body) -> Request_Body_Form {
+Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     out := make(Map(str, str));
 
     content_type := body.request.headers["content-type"];
-    content_type  = string.read_until(^content_type, ";");
+    content_type  = string.read_until(&content_type, ";");
 
     content := body.contents;
     switch content_type {
         case "application/x-www-form-urlencoded" {
-            parse_url_encoded_key_value(^out, ^content);
+            parse_url_encoded_key_value(&out, &content);
         }
 
         case "multipart/form-data" {
-            parse_multipart_form_data(body.request, ^out);
+            parse_multipart_form_data(body.request, &out);
         }
     }
 
@@ -253,11 +253,11 @@ Request_Body.form :: (body: ^Request_Body) -> Request_Body_Form {
 }
 
 #package
-parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
+parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
     _, boundary_map := string.bisect(r.headers["content-type"], #char ";");
     key, value      := string.bisect(boundary_map, #char "=");
-    string.strip_leading_whitespace(^key);
-    string.strip_leading_whitespace(^value);
+    string.strip_leading_whitespace(&key);
+    string.strip_leading_whitespace(&value);
 
     if key != "boundary" {
         return;
@@ -273,49 +273,49 @@ parse_multipart_form_data :: (r: ^Request, dest: ^Map(str, str)) {
 
     content := r.body.contents;
     while true {
-        line := string.read_until(^content, #char "\n");
-        string.advance(^content, 1);
+        line := string.read_until(&content, #char "\n");
+        string.advance(&content, 1);
         if content.length == 0 do break;
 
         part_name := "";
         while !string.starts_with(content, "\r\n") {
-            key, value := parse_header(^content);
+            key, value := parse_header(&content);
 
             if key == "content-disposition" {
-                string.strip_leading_whitespace(^value);
+                string.strip_leading_whitespace(&value);
                 if !string.starts_with(value, "form-data;") do continue;
-                string.advance(^value, "form-data;".length);
+                string.advance(&value, "form-data;".length);
 
-                string.strip_leading_whitespace(^value);
+                string.strip_leading_whitespace(&value);
                 if !string.starts_with(value, "name=\"") do continue;
-                string.advance(^value, "name=\"".length);
+                string.advance(&value, "name=\"".length);
 
-                part_name = string.read_until(^value, #char "\"");
+                part_name = string.read_until(&value, #char "\"");
             }
         }
 
-        part_value := string.read_until(^content, core.tprintf("\r\n--{}", boundary))
+        part_value := string.read_until(&content, core.tprintf("\r\n--{}", boundary))
                       |> string.strip_leading_whitespace();
 
         dest->put(part_name, part_value);
 
-        string.advance_line(^content);
+        string.advance_line(&content);
     }
 }
 
 
 #inject
-Request_Body_Form.field :: macro (form: ^Request_Body_Form, $type: type_expr, field: str, default := type.{}) -> type {
+Request_Body_Form.field :: macro (form: &Request_Body_Form, $type: type_expr, field: str, default := type.{}) -> type {
     if !(form.fields->has(field)) {
         return default;
     }
 
     if type == str {
-        return *cast(^type) ^form.fields[field];
+        return *cast(&type) &form.fields[field];
     }
 
     v: type;
-    if core.conv.parse_any(^v, form.fields[field]) {
+    if core.conv.parse_any(&v, form.fields[field]) {
         return v;
     }
 

@@ -1,10 +1,10 @@
-package http
+package http.server
 
 use core {io}
 
 Response :: struct {
     status_code: u32;
-    output: ^io.BufferStream;
+    output: &io.BufferStream;
     writer: io.Writer;
 
     //
@@ -25,76 +25,76 @@ Response :: struct {
 }
 
 #package
-response_init :: (res: ^Response) {
+response_init :: (res: &Response) {
     res.writer, res.output = io.string_builder();
 }
 
 #inject
-Response.write :: macro (res: ^Response, data: $T) {
-    io.write(^res.writer, data);
+Response.write :: macro (res: &Response, data: $T) {
+    io.write(&res.writer, data);
 }
 
 #inject
-Response.json :: (res: ^Response, data: $T) {
+Response.json :: (res: &Response, data: $T) {
     res.headers["Content-Type"] = "application/json";
 
-    err := json.encode(^res.writer, data);
+    err := json.encode(&res.writer, data);
     if err != .None {
         res.status_code = 500;
     }
 }
 
 #inject
-Response.html :: (res: ^Response, html: [] u8) {
+Response.html :: (res: &Response, html: [] u8) {
     res.headers["Content-Type"] = "text/html";
-    io.write(^res.writer, html);
+    io.write(&res.writer, html);
 }
 
 #inject
-Response.body :: (res: ^Response, type: str, data: [] u8) {
+Response.body :: (res: &Response, type: str, data: [] u8) {
     res.headers["Content-Type"] = type;
-    io.write(^res.writer, data);
+    io.write(&res.writer, data);
 }
 
 #inject
-Response.file :: (res: ^Response, path: str, type := "") {
+Response.file :: (res: &Response, path: str, type := "") {
     if os.file_exists(path) && os.is_file(path) {
         t := type if type != "" else guess_mime_type(path);
 
         res.headers["Content-Type"] = t;
-        io.write(^res.writer, os.get_contents(path));
+        io.write(&res.writer, os.get_contents(path));
     } else {
         res.status_code = 404;
     }
 }
 
 #inject
-Response.redirect :: macro (res: ^Response, location: str, status := 302) {
+Response.redirect :: macro (res: &Response, location: str, status := 302) {
     res.status_code = status;
     res.headers["Location"] = location;
 }
 
 #inject
-Response.status :: macro (res: ^Response, status: u32) {
+Response.status :: macro (res: &Response, status: u32) {
     res.status_code = status;
 }
 
 #inject
-Response.cookie :: macro (res: ^Response, key: str, value: str) {
+Response.cookie :: macro (res: &Response, key: str, value: str) {
     res.cookies[key] = value;
 }
 
 #inject
-Response.end :: macro (res: ^Response) {
+Response.end :: macro (res: &Response) {
     res.completed = true;
 }
 
 
 #package
-response_free :: (res: ^Response) {
-    delete(^res.headers);
+response_free :: (res: &Response) {
+    delete(&res.headers);
     delete(res.output);
-    io.writer_free(^res.writer);
+    io.writer_free(&res.writer);
 
     // I'm choosing to omit the explicit deletion
     // of the contents generated for this response
@@ -102,11 +102,11 @@ response_free :: (res: ^Response) {
     // event handling. I think this will be more
     // robust and prevent (almost) all forms of
     // memory leaks, including this one.
-    // delete(^res.contents);
+    // delete(&res.contents);
 }
 
 #package
-response_finalize :: (res: ^Response) {
+response_finalize :: (res: &Response) {
     content := string.as_str(res.output);
     res.headers["Content-Length"] = core.tprintf("{}", content.length);
     res.headers["Server"] = "Onyx-Http";
@@ -118,33 +118,33 @@ response_finalize :: (res: ^Response) {
     // Add the Date header.
     t := os.time();
     timestamp: time.Timestamp;
-    time.gmtime(t / 1000, ^timestamp);
+    time.gmtime(t / 1000, &timestamp);
 
     buf: [128] u8;
-    formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", ^timestamp);
+    formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", &timestamp);
     res.headers["Date"] = formatted_time |> string.alloc_copy();
 }
 
 #package
-send_response :: (res: ^Response, s: ^io.Stream) {
+send_response :: (res: &Response, s: &io.Stream) {
     w := io.writer_make(s);
 
-    io.write_format(^w, "HTTP/1.1 {} {}\r\n",
+    io.write_format(&w, "HTTP/1.1 {} {}\r\n",
         res.status_code,
         status_code_to_message(res.status_code));
 
-    for^ res.headers.entries {
-        io.write_format(^w, "{}: {}\r\n", it.key, it.value);
+    for& res.headers.entries {
+        io.write_format(&w, "{}: {}\r\n", it.key, it.value);
     }
 
-    for^ res.cookies.entries {
-        io.write_format(^w, "Set-Cookie: {}={}\r\n", it.key, it.value);
+    for& res.cookies.entries {
+        io.write_format(&w, "Set-Cookie: {}={}\r\n", it.key, it.value);
     }
 
-    io.write(^w, "\r\n");
+    io.write(&w, "\r\n");
 
-    io.write(^w, string.as_str(res.output));
-    io.writer_free(^w);
+    io.write(&w, string.as_str(res.output));
+    io.writer_free(&w);
 }
 
 #package

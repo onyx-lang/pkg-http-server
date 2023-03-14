@@ -1,4 +1,4 @@
-package http
+package http.server
 
 Pipeline :: struct {
     steps: [..] Pipe;
@@ -9,7 +9,7 @@ Pipeline :: struct {
 }
 
 Pipe :: struct {
-    handler: (data: rawptr, req: ^Request, res: ^Response) -> void;
+    handler: (data: rawptr, req: &Request, res: &Response) -> void;
     data: rawptr;
 
     execute_after_request := false;
@@ -22,33 +22,33 @@ pipeline :: () -> Pipeline {
 }
 
 #package
-pipeline_free :: (p: ^Pipeline) {
-    delete(^p.steps);
+pipeline_free :: (p: &Pipeline) {
+    delete(&p.steps);
 }
 
 #package
 pipeline_add_step :: #match #local {}
 
 #overload
-pipeline_add_step :: (p: ^Pipeline, s: HTTP_Handler) {
+pipeline_add_step :: (p: &Pipeline, s: HTTP_Handler) {
     step := convert_to_pipe(s);
     p.steps << step;
 }
 
 #overload
-pipeline_add_step :: (p: ^Pipeline, s: $T/Pipeable) {
+pipeline_add_step :: (p: &Pipeline, s: $T/Pipeable) {
     step := convert_to_pipe(s);
     p.steps << step;
 }
 
 #overload
-pipeline_add_step :: (p: ^Pipeline, pipe: Pipe) {
+pipeline_add_step :: (p: &Pipeline, pipe: Pipe) {
     p.steps << pipe;
 }
 
 #package
-pipeline_process :: (p: ^Pipeline, req: ^Request, res: ^Response) {
-    for^ p.steps {
+pipeline_process :: (p: &Pipeline, req: &Request, res: &Response) {
+    for& p.steps {
         if !res.completed || it.execute_after_request {
             it.handler(it.data, req, res);
         }
@@ -63,11 +63,11 @@ Pipeable :: interface (t: $T) {
 
 
 #overload
-convert_to_pipe :: macro (p: ^Pipeline) => Pipe.{pipeline_process, p};
+convert_to_pipe :: macro (p: &Pipeline) => Pipe.{pipeline_process, p};
 
 #overload
 convert_to_pipe :: macro (h: HTTP_Handler) => {
-    handler :: (f: ^HTTP_Handler, req: ^Request, res: ^Response) {
+    handler :: (f: &HTTP_Handler, req: &Request, res: &Response) {
         (*f)(req, res);
     }
 

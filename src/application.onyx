@@ -1,12 +1,13 @@
-package http
+package http.server
 
 Application :: struct {
-    server: ^net.TCP_Server;
+    server: &net.TCP_Server;
     pipeline: Pipeline;
 
-    session_state:     alloc.gc.GCState;
-    session_allocator: Allocator;
+    session_gc: alloc.gc.GCState;
+}
 
+#inject Application {
     pipe  :: application_pipe;
     serve :: application_serve;
 }
@@ -23,19 +24,24 @@ application :: () -> Application {
 application_pipe :: #match #local {}
 
 #overload
-application_pipe :: (app: ^Application, s: HTTP_Handler) {
+application_pipe :: (app: &Application, s: HTTP_Handler) {
     app.pipeline->add(s);
 }
 
 #overload
-application_pipe :: (app: ^Application, s: $T) {
+application_pipe :: (app: &Application, s: $T) {
     app.pipeline->add(s);
 }
 
+
+Serve_Status :: enum {
+    Success;
+    Failed_To_Bind;
+}
+
 #package
-application_serve :: (app: ^Application, port: u32) {
-    app.session_state = alloc.gc.make();
-    app.session_allocator = alloc.as_allocator(^app.session_state);
+application_serve :: (app: &Application, port: u32) -> Serve_Status {
+    app.session_gc = alloc.gc.make();
 
     app.server = net.tcp_server_make(max_clients=4);
     app.server.emit_data_events = false;
@@ -45,60 +51,76 @@ application_serve :: (app: ^Application, port: u32) {
     app.server.socket->setting(.ReuseAddress, 1);
 
     if !(app.server->listen(~~port)) {
-        log(.Error, core.tprintf("Failed to bind to port {}.\n", port));
-        os.exit(1);
+        log(.Error, "HTTP-Server", core.tprintf("Failed to bind to port {}.\n", port));
+        return .Success;
     }
 
-    os.register_fault_handler(app, (app: ^Application) {
-        log(.Info, "Stopping HTTP server...");
+    os.register_fault_handler(app, (app: &Application) {
+        log(.Info, "HTTP-Server", "Stopping HTTP server...");
         app.server->stop();
     });
 
-    log(.Info, core.tprintf("Serving on port {}", port));
+    log(.Info, "HTTP-Server", core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
         case .Connection {
             // Enable non-blocking communication on all sockets
-            (cast(^core.net.TCP_Event.Connection) it.data).client.socket->setting(.NonBlocking, 1);
+            cast(&core.net.TCP_Event.Connection, it.data).client.socket->setting(.NonBlocking, 1);
         }
 
         case .Ready {
-            old_allocator := context.allocator;
-            context.allocator = app.session_allocator;
-            defer {
-                alloc.gc.clear(^app.session_state);
-                context.allocator = old_allocator;
+            use_gc_allocator_in_current_scope(&app.session_gc);
+            defer alloc.clear_temp_allocator();
 
-                alloc.clear_temp_allocator();
-            }
-
-            ready_client := cast(^core.net.TCP_Event.Ready) it.data;
-            defer ready_client.client->read_complete();
-
-            reader := io.reader_make(^ready_client.client.socket);
-            defer io.reader_free(^reader);
-
-            req: Request;
-            defer request_free(^req);
-
-            req.app = app;
-            req.address = ready_client.client.address;
-            if !parse_request(^req, ^reader) {
+            ready_client := cast(&core.net.TCP_Event.Ready, it.data).client;
+            if !handle_request(app, &ready_client.address, &ready_client.socket) {
                 // If the request fails to parse, shutdown the connection.
                 // Likely, this is actually due to the socket being empty
                 // and/or already closed, but you can't tell until you try
                 // to read from it.
-                app.server->kill_client(ready_client.client);
-                continue;
+                app.server->kill_client(ready_client);
+
+            } else {
+                ready_client->read_complete();
             }
-
-            res: Response;
-            response_init(^res);
-            defer response_free(^res);
-
-            app.pipeline->process(^req, ^res);
-            response_finalize(^res);
-            send_response(^res, ^ready_client.client.socket);
         }
+    }
+}
+
+#local
+handle_request :: (app: &Application, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
+    req := Request.{
+        app = app,
+        address = *req_address
+    };
+    defer request_free(&req);
+
+    reader := io.reader_make(s);
+    defer io.reader_free(&reader);
+
+    if !parse_request(&req, &reader) {
+        return false;
+    }
+
+    res: Response;
+    response_init(&res);
+    defer response_free(&res);
+
+    // Process the request!
+    app.pipeline->process(&req, &res);
+
+    response_finalize(&res);
+    send_response(&res, s);
+
+    return true;
+}
+
+#local
+use_gc_allocator_in_current_scope :: macro (gc: &alloc.gc.GCState) {
+    old_allocator := context.allocator;
+    context.allocator = alloc.as_allocator(gc);
+    defer {
+        alloc.gc.clear(gc);
+        context.allocator = old_allocator;
     }
 }
 
