@@ -1,6 +1,9 @@
 package http.server
 
 #package {
+    use core
+
+    core   :: core
     alloc  :: core.alloc
     string :: core.string
     io     :: core.io

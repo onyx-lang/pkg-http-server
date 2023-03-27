@@ -1,5 +1,8 @@
 package http.server
 
+use runtime
+use json
+
 Request :: struct {
     app: &Application;
 
@@ -214,6 +217,8 @@ Request_Body.json :: (body: &Request_Body) -> json.Json {
 
 #inject
 Request_Body.json_as :: macro (body: &Request_Body, $T: type_expr) -> T {
+    json :: json
+
     j := json.decode(body.contents);
     defer json.free(j);
 

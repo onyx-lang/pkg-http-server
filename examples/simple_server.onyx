@@ -3,6 +3,8 @@
 #load_path "./lib"
 #load "./module"
 
+use core
+use http
 use http.server {
     Req :: Request,
     Res :: Response,

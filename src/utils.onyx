@@ -162,7 +162,8 @@ set_mime_type :: (ext: str, type: str) {
 // enable the any encoder as it is very useful when
 // returning a JSON result.
 #if #defined(package json) {
-    #inject (package json) {
+    use json
+    #inject json {
         Use_Any_Encoder :: true;
     }
 }

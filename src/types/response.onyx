@@ -1,6 +1,7 @@
 package http.server
 
 use core {io}
+use json
 
 Response :: struct {
     status_code: u32;

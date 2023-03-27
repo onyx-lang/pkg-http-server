@@ -4,21 +4,22 @@
 // This prevents you from having to type
 // http.Request and http.Response over and
 // over again...
-use http {
+use http
+use http.server {
     Req :: Request,
     Res :: Response,
 }
 
-#tag http.route.{.GET, "/index"}
+#tag http.server.route.{.GET, "/index"}
 (req: &Req, res: &Res) {
     res->status(200);
     res->html("From a tag!");
 }
 
 main :: () {
-    app := http.application();
+    app := http.server.application();
 
-    router := http.router();
+    router := http.server.router();
     router->collect_routes();
 
     app->pipe(&router);

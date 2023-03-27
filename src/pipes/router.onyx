@@ -1,5 +1,7 @@
 package http.server
 
+use runtime
+
 Router :: struct {
     routes: [..] Route;
 
