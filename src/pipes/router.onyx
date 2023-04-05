@@ -159,7 +159,7 @@ sort_routes :: (router: &Router) {
         first_param_b := core.slice.find(b.elems, #(it.is_variable));
         
         if first_param_a != first_param_b {
-            return first_param_a - first_param_b;
+            return first_param_b - first_param_a;
         }
 
         x1 := a.elems.count;
@@ -211,6 +211,7 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
             }
         }
         else {
+            total := 0;
             for parts: iter.zip(iter.as_iter(it.elems), string.split_iter(req.endpoint, '/')->skip(1)) {
                 if !parts.first.is_variable {
                     if parts.first.pattern != parts.second {
@@ -222,6 +223,12 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
                     consumed_length += parts.second.length + 1;
                     tmp_url_params << .{ parts.first.pattern, parts.second };
                 }
+
+                total += 1;
+            }
+
+            if total != it.elems.count || total != core.slice.count_where(req.endpoint, #(it == '/')) {
+                continue;
             }
         }
 

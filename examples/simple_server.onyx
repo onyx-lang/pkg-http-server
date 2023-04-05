@@ -112,6 +112,12 @@ require_logon :: (req: &Req, res: &Res) {
     res->status(200);
 }
 
+@Route.{.GET, "/url/params" }
+(req: &Req, res: &Res) {
+    core.println("Please provide params");
+    res->status(200);
+}
+
 
 Input :: struct {
     name: str;
