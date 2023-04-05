@@ -3,7 +3,7 @@
 #load_path "./lib"
 #load "./module"
 
-use core
+use core {package, tprintf}
 use http
 use http.server {
     Req :: Request,
@@ -106,6 +106,12 @@ require_logon :: (req: &Req, res: &Res) {
     res->status(401);
 }
 
+@Route.{.GET, "/url/params/:param1/:param2" }
+(req: &Req, res: &Res) {
+    core.println(req.url_params);
+    res->status(200);
+}
+
 
 Input :: struct {
     name: str;
@@ -141,6 +147,12 @@ main :: () {
     inner_router->get("/other", (req, res) => {
         res->status(200);
         res->html("<h1>Inner Other page!</h1>");
+        res->end();
+    });
+
+    inner_router->get("/:the_page_name", (req, res) => {
+        res->status(200);
+        res->html(tprintf("<h1>{} page!</h1>", req.url_params["the_page_name"]));
         res->end();
     });
 
