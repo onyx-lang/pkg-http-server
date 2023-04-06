@@ -55,10 +55,10 @@ application_serve :: (app: &Application, port: u32) -> Serve_Status {
         return .Success;
     }
 
-    os.register_fault_handler(app, (app: &Application) {
-        log(.Info, "HTTP-Server", "Stopping HTTP server...");
-        app.server->stop();
-    });
+    // os.register_fault_handler(app, (app: &Application) {
+    //     log(.Info, "HTTP-Server", "Stopping HTTP server...");
+    //     app.server->stop();
+    // });
 
     log(.Info, "HTTP-Server", core.tprintf("Serving on port {}", port));
     app.server->handle_events() {
@@ -68,10 +68,16 @@ application_serve :: (app: &Application, port: u32) -> Serve_Status {
         }
 
         case .Ready {
+            ready_client := cast(&core.net.TCP_Event.Ready, it.data).client;
+            if ready_client.socket.vtable == null {
+                log(.Warning, "HTTP-Server", "Discarding dead client");
+                ready_client->read_complete();
+                continue;
+            }
+
             use_gc_allocator_in_current_scope(&app.session_gc);
             defer alloc.clear_temp_allocator();
 
-            ready_client := cast(&core.net.TCP_Event.Ready, it.data).client;
             if !handle_request(app, &ready_client.address, &ready_client.socket) {
                 // If the request fails to parse, shutdown the connection.
                 // Likely, this is actually due to the socket being empty
