@@ -69,7 +69,7 @@ application_serve :: (app: &Application, port: u32) -> Serve_Status {
 
         case .Ready {
             ready_client := cast(&core.net.TCP_Event.Ready, it.data).client;
-            if ready_client.socket.vtable == null {
+            if ready_client.socket.vtable == null || ready_client.state != .Alive {
                 log(.Warning, "HTTP-Server", "Discarding dead client");
                 ready_client->read_complete();
                 continue;
