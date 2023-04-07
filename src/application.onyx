@@ -43,7 +43,7 @@ Serve_Status :: enum {
 application_serve :: (app: &Application, port: u32) -> Serve_Status {
     app.session_gc = alloc.gc.make();
 
-    app.server = net.tcp_server_make(max_clients=4);
+    app.server = net.tcp_server_make(max_clients=16);
     app.server.emit_data_events = false;
 
     // Allows the server to be immediately restarted. Not
@@ -103,19 +103,30 @@ handle_request :: (app: &Application, req_address: &net.Socket_Address, s: &net.
     reader := io.reader_make(s);
     defer io.reader_free(&reader);
 
-    if !parse_request(&req, &reader) {
-        return false;
+    //
+    // Loop until there is no data buffered in the reader.
+    // If two requests were sent back-to-back, there is a non-zero
+    // chance the reader will start consuming the second request
+    // when reading the body/headers of the first. If it does,
+    // immediately process that data here, otherwise it will be
+    // lost forever. If the reader doesn't start reading those bytes,
+    // then the TCP server will just say that the client is ready
+    // to be read from again.
+    while #bottom_test io.reader_get_buffered(&reader) > 0 {
+        if !parse_request(&req, &reader) {
+            return false;
+        }
+
+        res: Response;
+        response_init(&res);
+        defer response_free(&res);
+
+        // Process the request!
+        app.pipeline->process(&req, &res);
+
+        response_finalize(&res);
+        send_response(&res, s);
     }
-
-    res: Response;
-    response_init(&res);
-    defer response_free(&res);
-
-    // Process the request!
-    app.pipeline->process(&req, &res);
-
-    response_finalize(&res);
-    send_response(&res, s);
 
     return true;
 }
