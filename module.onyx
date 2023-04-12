@@ -19,12 +19,3 @@ package http.server
 #load_all "./src"
 #load_all "./src/types"
 #load_all "./src/pipes"
-
-#if #defined(main.HTTP_EXAMPLE) {
-    // The example files included in this package
-    // need to include the other required files differently.
-    #load "lib/json/module"
-
-} else {
-    #load "./../json/module"
-}

@@ -1,7 +1,7 @@
 package http.server
 
 use runtime
-use json
+use core.encoding.json
 
 Request :: struct {
     app: &Application;

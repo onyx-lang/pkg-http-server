@@ -156,14 +156,3 @@ set_mime_type :: (ext: str, type: str) {
         known_mimetypes->init();
     }
 }
-
-//
-// When using in combination with the JSON library,
-// enable the any encoder as it is very useful when
-// returning a JSON result.
-#if #defined(package json) {
-    use json
-    #inject json {
-        Use_Any_Encoder :: true;
-    }
-}

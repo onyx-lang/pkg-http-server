@@ -171,5 +171,3 @@ main :: () {
 
     app->serve(8080);
 }
-
-HTTP_EXAMPLE :: true
