@@ -72,6 +72,6 @@ convert_to_pipe :: macro (h: HTTP_Handler) => {
     }
 
     f := new(typeof h, allocator=long_term_allocator);
-    *f = h;
+    *f = alloc.copy_closure(h, long_term_allocator);
     return Pipe.{ handler, f };
 }

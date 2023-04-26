@@ -159,7 +159,7 @@ sort_routes :: (router: &Router) {
         first_param_b := core.slice.find(b.elems, #(it.is_variable));
         
         if first_param_a != first_param_b {
-            return first_param_b - first_param_a;
+            return first_param_a - first_param_b;
         }
 
         x1 := a.elems.count;
@@ -215,6 +215,7 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
             for parts: iter.zip(iter.as_iter(it.elems), string.split_iter(req.endpoint, '/')->skip(1)) {
                 if !parts.first.is_variable {
                     if parts.first.pattern != parts.second {
+                        // No match, skip the entire rest of this route.
                         continue continue;
                     }
                     consumed_length += parts.second.length + 1; // /xxx
@@ -227,7 +228,7 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
                 total += 1;
             }
 
-            if total != it.elems.count || total != core.slice.count_where(req.endpoint, #(it == '/')) {
+            if total != it.elems.count {
                 continue;
             }
         }
@@ -238,6 +239,8 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
         it.pipeline->process(req, res);
         return;
     }
+
+    res->status(404);
 }
 
 #local

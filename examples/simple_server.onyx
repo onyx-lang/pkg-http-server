@@ -152,7 +152,7 @@ main :: () {
 
     inner_router->get("/other", (req, res) => {
         res->status(200);
-        res->html("<h1>Inner Other page!</h1>");
+        res->html(tprintf("<h1>Inner Other page! {}</h1>", req.endpoint));
         res->end();
     });
 
