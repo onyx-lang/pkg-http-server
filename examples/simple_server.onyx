@@ -8,7 +8,8 @@ use http
 use http.server {
     Req :: Request,
     Res :: Response,
-    Route :: route
+    Route :: route,
+    Middleware :: middleware
 }
 
 #inject
@@ -26,6 +27,24 @@ Res.template :: (res: &Res, file: str) {
 
     res->status(200);
     res->html(core.tprintf("<div style='color:red;'>Hello, {}! {}</div>", name, v));
+}
+
+login_required :: (req: &Req, res: &Res) {}
+
+is_admin :: (req: &Req, res: &Res) {
+    if req->query_param(i32, "admin_passcode") != 8675309 {
+        res->status(401);
+        res->body("text/plain", "Unauthorized");
+        res->end();
+    }
+}
+
+@Route.{.GET, "/admin"}
+@Middleware.{login_required}
+@Middleware.{is_admin}
+(req: &Req, res: &Res) {
+    res->status(200);
+    res->html("Worked");
 }
 
 @Route.{.GET, "/json"}
@@ -141,7 +160,7 @@ main :: () {
     app->pipe(&static);
 
     router := http.server.router();
-    router->collect_routes();
+    router->collect_routes(#this_package);
 
     inner_router := http.server.router();
     inner_router->get("/", (req, res) => {

@@ -8,8 +8,9 @@ Router :: struct {
 
     // Prepended to every route
     base_path := "";
+}
 
-
+#inject Router {
     collect_routes :: router_collect_routes
     route          :: router_add_route
     all            :: #solidify __quick_route {method=HTTP_Method.ALL}
@@ -228,7 +229,7 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
                 total += 1;
             }
 
-            if total != it.elems.count {
+            if total != it.elems.count || total != core.slice.count_where(req.endpoint, #(it == '/')) {
                 continue;
             }
         }
