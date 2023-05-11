@@ -16,7 +16,6 @@ main :: () {
         res->html("Working!");
     });
 
-    app := http.server.application();
-    app->pipe(&p);
+    app := http.server.tcp(p);
     app->serve(8080);
 }

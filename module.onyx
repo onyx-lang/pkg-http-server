@@ -17,5 +17,6 @@ package http.server
 }
 
 #load_all "./src"
+#load_all "./src/hosting"
 #load_all "./src/types"
 #load_all "./src/pipes"

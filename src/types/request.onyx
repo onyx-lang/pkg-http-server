@@ -4,8 +4,6 @@ use runtime
 use core.encoding.json
 
 Request :: struct {
-    app: &Application;
-
     method: HTTP_Method;
 
     // base_endpoint is what was originally requested.
@@ -37,6 +35,8 @@ Request_Body_Form :: struct {
 
 #inject
 Request.query_param :: macro (req: &Request, $type: type_expr, param: str, default := type.{}) -> type {
+    use core
+
     if !(req.query->has(param)) {
         return default;
     }

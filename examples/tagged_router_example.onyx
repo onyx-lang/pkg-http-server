@@ -17,11 +17,9 @@ use http.server {
 }
 
 main :: () {
-    app := http.server.application();
-
     router := http.server.router();
     router->collect_routes();
 
-    app->pipe(&router);
+    app := http.server.tcp(&router);
     app->serve(8080);
 }

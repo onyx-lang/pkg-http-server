@@ -154,12 +154,14 @@ Input :: struct {
 }
 
 main :: () {
-    app := http.server.application();
+    app := http.server.pipeline();
 
     static := http.server.static("/static", "examples/static");
     app->pipe(&static);
 
     router := http.server.router();
+    app->pipe(&router);
+
     router->collect_routes(#this_package);
 
     inner_router := http.server.router();
@@ -183,10 +185,9 @@ main :: () {
 
     router->route("/inner", &inner_router);
 
-    app->pipe(&router);
-
     logger := http.server.logger();
     app->pipe(&logger);
 
-    app->serve(8080);
+    tcp := http.server.tcp(app);
+    tcp->serve(8080);
 }

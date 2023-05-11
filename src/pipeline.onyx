@@ -5,6 +5,7 @@ Pipeline :: struct {
 
     free    :: pipeline_free
     add     :: pipeline_add_step
+    pipe    :: pipeline_add_step
     process :: pipeline_process
 }
 

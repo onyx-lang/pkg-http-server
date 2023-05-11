@@ -1,38 +1,27 @@
 package http.server
 
-Application :: struct {
+TCP_Server :: struct {
     server: &net.TCP_Server;
     pipeline: Pipeline;
 
     session_gc: alloc.gc.GCState;
 }
 
-#inject Application {
-    pipe  :: application_pipe;
-    serve :: application_serve;
+#inject TCP_Server {
+    serve :: tcp_serve;
 }
 
-application :: () -> Application {
-    app: Application;
-
-    app.pipeline = pipeline();
-
-    return app;
-}
-
-#package
-application_pipe :: #match #local {}
+tcp :: #match {}
 
 #overload
-application_pipe :: (app: &Application, s: HTTP_Handler) {
-    app.pipeline->add(s);
-}
+tcp :: (pipeline: Pipeline) => TCP_Server.{ pipeline = pipeline };
 
 #overload
-application_pipe :: (app: &Application, s: $T) {
-    app.pipeline->add(s);
+tcp :: (p: $P/Pipeable) -> TCP_Server {
+    pipe := pipeline();
+    pipe->pipe(p);
+    return TCP_Server.{ pipeline = pipe };
 }
-
 
 Serve_Status :: enum {
     Success;
@@ -40,28 +29,23 @@ Serve_Status :: enum {
 }
 
 #package
-application_serve :: (app: &Application, port: u32) -> Serve_Status {
-    app.session_gc = alloc.gc.make();
+tcp_serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
+    tcp.session_gc = alloc.gc.make();
 
-    app.server = net.tcp_server_make(max_clients=16);
-    app.server.emit_data_events = false;
+    tcp.server = net.tcp_server_make(max_clients=16);
+    tcp.server.emit_data_events = false;
 
     // Allows the server to be immediately restarted. Not
     // the safest, but it is fine for a development instance.
-    app.server.socket->setting(.ReuseAddress, 1);
+    tcp.server.socket->setting(.ReuseAddress, 1);
 
-    if !(app.server->listen(~~port)) {
+    if !(tcp.server->listen(~~port)) {
         log(.Error, "HTTP-Server", core.tprintf("Failed to bind to port {}.\n", port));
         return .Success;
     }
 
-    // os.register_fault_handler(app, (app: &Application) {
-    //     log(.Info, "HTTP-Server", "Stopping HTTP server...");
-    //     app.server->stop();
-    // });
-
     log(.Info, "HTTP-Server", core.tprintf("Serving on port {}", port));
-    app.server->handle_events() {
+    tcp.server->handle_events() {
         case .Connection {
             // Enable non-blocking communication on all sockets
             cast(&core.net.TCP_Event.Connection, it.data).client.socket->setting(.NonBlocking, 1);
@@ -75,15 +59,15 @@ application_serve :: (app: &Application, port: u32) -> Serve_Status {
                 continue;
             }
 
-            use_gc_allocator_in_current_scope(&app.session_gc);
+            use_gc_allocator_in_current_scope(&tcp.session_gc);
             defer alloc.clear_temp_allocator();
 
-            if !handle_request(app, &ready_client.address, &ready_client.socket) {
+            if !handle_request(tcp, &ready_client.address, &ready_client.socket) {
                 // If the request fails to parse, shutdown the connection.
                 // Likely, this is actually due to the socket being empty
                 // and/or already closed, but you can't tell until you try
                 // to read from it.
-                app.server->kill_client(ready_client);
+                tcp.server->kill_client(ready_client);
 
             } else {
                 ready_client->read_complete();
@@ -93,11 +77,8 @@ application_serve :: (app: &Application, port: u32) -> Serve_Status {
 }
 
 #local
-handle_request :: (app: &Application, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
-    req := Request.{
-        app = app,
-        address = *req_address
-    };
+handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
+    req := Request.{ address = *req_address };
     defer request_free(&req);
 
     reader := io.reader_make(s);
@@ -122,7 +103,7 @@ handle_request :: (app: &Application, req_address: &net.Socket_Address, s: &net.
         defer response_free(&res);
 
         // Process the request!
-        app.pipeline->process(&req, &res);
+        tcp.pipeline->process(&req, &res);
 
         response_finalize(&res);
         send_response(&res, s);

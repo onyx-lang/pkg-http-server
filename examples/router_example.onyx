@@ -5,8 +5,6 @@ use http
 
 // A typical HTTP application
 main :: () {
-    app := http.server.application();
-
     router := http.server.router();
 
     // You can specify the HTTP Method using the enum value.
@@ -27,6 +25,6 @@ main :: () {
     });
 
 
-    app->pipe(&router);
+    app := http.server.tcp(&router);
     app->serve(8080);
 }
