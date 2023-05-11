@@ -12,11 +12,16 @@ package http.server
     iter   :: core.iter
     conv   :: core.conv
     time   :: core.time
-
-    net    :: core.net
 }
 
+use runtime
+#if runtime.runtime == .Onyx {
+    #package net :: core.net
+    #load "./src/hosting/tcp_server"
+}
+
+
 #load_all "./src"
-#load_all "./src/hosting"
 #load_all "./src/types"
 #load_all "./src/pipes"
+#load "./src/hosting/cgi"

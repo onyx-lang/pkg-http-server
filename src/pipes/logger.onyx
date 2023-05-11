@@ -18,7 +18,7 @@ logger_log_request :: (l: &Logger, req: &Request, res: &Response) {
     io.write_format(
         &l.writer,
         "{} {} {}{} - {}\n",
-        req.address->addr_as_str(),
+        req.address.ip,
         req.method,
         req.headers["host"], req.base_endpoint,
         res.status_code);

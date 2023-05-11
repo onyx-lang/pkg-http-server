@@ -1,0 +1,70 @@
+package http.server
+
+use runtime {info}
+use core.os
+use core { stdio }
+
+CGI :: struct {
+    pipeline: Pipeline;
+}
+
+cgi :: #match {}
+
+#overload
+cgi :: (p: $P/Pipeable) {
+    pipe := pipeline();
+    pipe->pipe(p);
+    cgi(pipe);
+}
+
+#overload
+cgi :: (p: Pipeline) {
+    req := make_request_from_env();
+    defer request_free(&req);
+
+    req.body.request = &req;
+
+    res: Response;
+    response_init(&res);
+    defer response_free(&res);
+
+    pipe := p;
+    pipe->process(&req, &res);
+
+    response_finalize(&res);
+    send_response(&res, &stdio.stream);
+}
+
+
+make_request_from_env :: () -> Request {
+    env := os.env_vars();
+
+    req: Request;
+
+    req.method = info.enum_value(typeof req.method, env["REQUEST_METHOD"]);
+    req.endpoint = env["PATH_TRANSLATED"];
+    req.base_endpoint = req.endpoint;
+
+    req.address.ip = env["REMOTE_ADDR"];
+
+    for iter.as_iter(env) {
+        if string.starts_with(it.key, "HTTP_") {
+            req.headers->put(string.advance(it.key, "HTTP_".count), it.value);
+        }
+    }
+
+    req.headers["content-type"]   = env["HTTP_CONTENT_TYPE"];
+    req.headers["user-agent"]     = env["HTTP_USER_AGENT"];
+    req.headers["content-length"] = env["HTTP_CONTENT_LENGTH"];
+
+    query_string := env["QUERY_STRING"];
+    parse_url_encoded_key_value(&req.query, &query_string);
+    
+    parse_cookies(env["HTTP_COOKIE"], &req.cookies);
+
+    r := io.reader_make(&stdio.stream);
+    req.body.contents = r->read_all();
+
+    return req;
+}
+

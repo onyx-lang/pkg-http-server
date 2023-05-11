@@ -1,0 +1,31 @@
+
+#load "./module"
+
+use core
+use http
+use http.server {
+    Req :: Request,
+    Res :: Response,
+    route,
+}
+
+@route.{.GET, "/index"}
+(req: &Req, res: &Res) {
+    res->status(200);
+    res->html("<h1>Working CGI!</h1>");
+
+    if name := req.query->get_opt("name"); name {
+        res->html(core.tprintf("<p>Hello, {}!</p>", name->unwrap()));
+    }
+}
+
+main :: () {
+    router := http.server.router();
+    router->collect_routes(#this_package);
+
+    http.server.cgi(&router);
+    // tcp := http.server.tcp(&router);
+    // tcp->serve(8080);
+}
+
+

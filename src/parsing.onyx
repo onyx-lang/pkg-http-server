@@ -1,0 +1,60 @@
+package http.server
+
+#package
+parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
+    // @ErrorHandling
+    while !string.empty(*input) {
+        key   := string.read_until(input, #char "=") |> urldecode();
+        string.advance(input);
+        value := string.read_until(input, #char "&") |> urldecode();
+        string.advance(input);
+
+        dest->put(key, value);
+    }
+}
+
+#package
+parse_header :: #match #local {}
+
+#overload
+parse_header :: (r: &io.Reader) -> (str, str) {
+    line := r->read_line();
+    if line == "\r\n" do return "", "";
+
+    return parse_header(&line);
+}
+
+#overload
+parse_header :: (line: &str) -> (str, str) {
+    l := string.read_until(line, #char "\n");
+    string.advance_line(line);
+
+    header := string.read_until(&l, #char ":");
+    string.advance(&l, 2);
+
+    // Remove the \r\n that occurs at the end of the value.
+    value := l;
+    string.strip_trailing_whitespace(&value);
+
+    header = string.to_lowercase(header);
+
+    return header, value;
+}
+
+#package
+parse_cookies :: #match #local {}
+
+#overload
+parse_cookies :: (line: str, m: &Map(str, str)) {
+    value := line;
+    while true {
+        pair := string.read_until(&value, "; ");
+        if pair.count == 0 do break;
+
+        k, v := string.bisect(pair, #char "=");
+        m->put(k, v);
+
+        string.advance(&value, 2);
+    }
+}
+

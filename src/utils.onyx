@@ -155,4 +155,13 @@ set_mime_type :: (ext: str, type: str) {
 
         known_mimetypes->init();
     }
+
+    use_gc_allocator_in_current_scope :: macro (gc: &alloc.gc.GCState) {
+        old_allocator := context.allocator;
+        context.allocator = alloc.as_allocator(gc);
+        defer {
+            alloc.gc.clear(gc);
+            context.allocator = old_allocator;
+        }
+    }
 }

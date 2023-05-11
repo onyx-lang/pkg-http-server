@@ -1,5 +1,7 @@
 package http.server
 
+use runtime
+
 TCP_Server :: struct {
     server: &net.TCP_Server;
     pipeline: Pipeline;
@@ -78,7 +80,7 @@ tcp_serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
 #local
 handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
-    req := Request.{ address = *req_address };
+    req := Request.{ address = .{ req_address->addr_as_str() } };
     defer request_free(&req);
 
     reader := io.reader_make(s);
@@ -111,6 +113,83 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.S
 
     return true;
 }
+
+
+
+#local
+parse_request :: #match #local {}
+
+#overload
+parse_request :: (req: &Request, s: str) -> bool {
+    stream := io.buffer_stream_make(s, fixed=true, write_enabled=false);
+    r := io.reader_make(&stream);
+    defer io.reader_free(&r);
+    
+    return parse_request(req, &r);
+}
+
+#overload
+parse_request :: (req: &Request, r: &io.Reader) -> bool {
+    // @ErrorHandling
+    {
+        request_line := r->read_line();
+        if request_line.length == 0 do return false;
+
+        method := string.read_until(&request_line, #char " ");
+        string.advance(&request_line);
+
+        m := core.array.first(runtime.info.enum_values(HTTP_Method), #(it.name == method));
+        if m == null do req.method = .UNKNOWN;
+        else         do req.method = ~~m.value;
+
+        route := string.read_until(&request_line, #char " ");
+        string.advance(&request_line);
+
+        req.endpoint = string.read_until(&route, #char "?");
+        req.base_endpoint = req.endpoint;
+        string.advance(&route);
+
+        parse_url_encoded_key_value(&req.query, &route);
+    }
+
+    while true {
+        header, value := parse_header(r);
+        if header == "" do break;
+
+        if header == "cookie" {
+            // Parse cookies
+            parse_cookies(value, &req.cookies);
+            continue;
+        }
+
+        req.headers[header] = value;
+    }
+
+    parse_body(req, r);
+    return true;
+}
+
+#local
+parse_body :: (req: &Request, r: &io.Reader) {
+    req.body.request = req;
+
+    if req.headers->has("content-length") {
+        body_length := cast(u32) (req.headers["content-length"] |> conv.str_to_i64());
+        if body_length == 0 {
+            return;
+        }
+
+        body := make([] u8, body_length);
+        index := 0;
+        while index < body_length {
+            read, err := r->read_bytes(body[index .. body_length]);
+            index += read;
+        }
+
+        req.body.contents = body;
+    }
+}
+
 
 #local
 use_gc_allocator_in_current_scope :: macro (gc: &alloc.gc.GCState) {
