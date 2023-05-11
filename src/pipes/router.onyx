@@ -214,18 +214,16 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
         else {
             total := 0;
             for parts: iter.zip(iter.as_iter(it.elems), string.split_iter(req.endpoint, '/')->skip(1)) {
-                if !parts.first.is_variable {
-                    if parts.first.pattern != parts.second {
-                        // No match, skip the entire rest of this route.
-                        continue continue;
-                    }
-                    consumed_length += parts.second.length + 1; // /xxx
+                if !parts.first.is_variable && parts.first.pattern != parts.second {
+                    // No match, skip the entire rest of this route.
+                    continue continue;
                 }
-                else {
-                    consumed_length += parts.second.length + 1;
+
+                if parts.first.is_variable {
                     tmp_url_params << .{ parts.first.pattern, parts.second };
                 }
 
+                consumed_length += parts.second.length + 1; // /thing
                 total += 1;
             }
 
