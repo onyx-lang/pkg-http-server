@@ -42,7 +42,7 @@ make_request_from_env :: () -> Request {
     req: Request;
 
     req.method = info.enum_value(typeof req.method, env["REQUEST_METHOD"]);
-    req.endpoint = env["PATH_TRANSLATED"];
+    req.endpoint = env->get_opt("PATH_TRANSLATED") ?? env->get("PATH_INFO");
     req.base_endpoint = req.endpoint;
 
     req.address.ip = env["REMOTE_ADDR"];
