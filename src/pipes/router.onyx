@@ -169,7 +169,7 @@ sort_routes :: (router: &Router) {
         first_param_b := core.slice.find(b.elems, #(it.tag == .Variable));
         
         if first_param_a != first_param_b {
-            return first_param_a - first_param_b;
+            return first_param_b - first_param_a;
         }
 
         x1 := a.elems.count;
