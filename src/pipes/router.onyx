@@ -165,17 +165,17 @@ pattern_length :: macro (v: Route.Elem) -> i32 {
 #local
 sort_routes :: (router: &Router) {
     core.slice.sort(router.routes, (a, b) => {
-        first_param_a := core.slice.find(a.elems, #(it.tag == .Variable));
-        first_param_b := core.slice.find(b.elems, #(it.tag == .Variable));
-        
-        if first_param_a != first_param_b {
-            return first_param_b - first_param_a;
-        }
-
         x1 := a.elems.count;
         x2 := b.elems.count;
 
         if x1 == x2 {
+            first_param_a := core.slice.find(a.elems, #(it.tag == .Variable));
+            first_param_b := core.slice.find(b.elems, #(it.tag == .Variable));
+            
+            if first_param_a != first_param_b {
+                return first_param_a - first_param_b;
+            }
+
             return pattern_length(b.elems[b.elems.length - 1]) - pattern_length(a.elems[a.elems.length - 1]);
         } else {
             return x2 - x1;
