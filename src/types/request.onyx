@@ -10,8 +10,8 @@ Request :: struct {
     // endpoint is modified through request routing,
     // and ends up being the final route that was
     // matched.
-    base_endpoint: str;
     endpoint: str;
+    _processed_endpoint: [] Route.Elem;
 
     headers:    Map(str, str);
     query:      Map(str, str);

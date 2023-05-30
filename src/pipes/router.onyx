@@ -2,6 +2,7 @@ package http.server
 
 use runtime
 use core {tprintf}
+use core.array
 
 Router :: struct {
     routes: [..] Route;
@@ -31,9 +32,9 @@ Route :: struct {
     elems: [] Elem;
     pipeline: Pipeline;
     
-    Elem :: struct {
-        pattern: str;
-        is_variable: bool;
+    Elem :: union {
+        Fixed: str;
+        Variable: str;
     }
 }
 
@@ -154,10 +155,18 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
 }
 
 #local
+pattern_length :: macro (v: Route.Elem) -> i32 {
+    switch v {
+        case .Variable => var_name do return var_name.length;
+        case .Fixed    => fixed    do return fixed.length;
+    }
+}
+
+#local
 sort_routes :: (router: &Router) {
     core.slice.sort(router.routes, (a, b) => {
-        first_param_a := core.slice.find(a.elems, #(it.is_variable));
-        first_param_b := core.slice.find(b.elems, #(it.is_variable));
+        first_param_a := core.slice.find(a.elems, #(it.tag == .Variable));
+        first_param_b := core.slice.find(b.elems, #(it.tag == .Variable));
         
         if first_param_a != first_param_b {
             return first_param_a - first_param_b;
@@ -167,7 +176,7 @@ sort_routes :: (router: &Router) {
         x2 := b.elems.count;
 
         if x1 == x2 {
-            return b.elems[b.elems.length - 1].pattern.length - a.elems[a.elems.length - 1].pattern.length;
+            return pattern_length(b.elems[b.elems.length - 1]) - pattern_length(a.elems[a.elems.length - 1]);
         } else {
             return x2 - x1;
         }
@@ -192,57 +201,64 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
         if it.method != .ALL && it.method != req.method do continue;
         core.array.clear(&tmp_url_params);
 
-        consumed_length := 0;
+        matched_parts := pattern_match_routes(it.elems, req._processed_endpoint, &tmp_url_params).Matched;
+        if matched_parts {
+            for tmp_url_params do req.url_params[it.name] = it.value;
+            req._processed_endpoint = req._processed_endpoint[matched_parts? .. req._processed_endpoint.length];
 
-        //
-        // "/" is a special route.
-        // The code below checks to see if the requested endpoint
-        // begins with the same characters as the route being checked.
-        // This works in almost all cases, and enables nesting routers.
-        // However, if the route is "/" every single route will match
-        // it, which is not the intended behavior. To avoid this, when
-        // matching "/", the match has to be exact ("/"), or the empty
-        // string("").  The empty string case allows a sub router to use
-        // "/" as its route path. So when a user visits "/subroute",
-        // it will match the "/" on the sub router, without the user
-        // having to visit "/subroute/".
-        if it.elems.count == 0 || req.endpoint == "/" || req.endpoint.length == 0 {
-            if it.elems.count > 0 || (req.endpoint != "/" && req.endpoint.length > 0) {
-                continue;
-            }
+            it.pipeline->process(req, res);
+            return;
         }
-        else {
-            total := 0;
-            for parts: iter.zip(iter.as_iter(it.elems), string.split_iter(req.endpoint, '/')->skip(1)) {
-                if !parts.first.is_variable && parts.first.pattern != parts.second {
-                    // No match, skip the entire rest of this route.
-                    continue continue;
-                }
-
-                if parts.first.is_variable {
-                    tmp_url_params << .{ parts.first.pattern, parts.second };
-                }
-
-                consumed_length += parts.second.length + 1; // /thing
-                total += 1;
-            }
-
-            if total != it.elems.count || total != core.slice.count_where(req.endpoint, #(it == '/')) {
-                continue;
-            }
-        }
-
-        for tmp_url_params do req.url_params[it.name] = it.value;
-
-        req.endpoint = req.endpoint[consumed_length .. req.endpoint.length];
-        it.pipeline->process(req, res);
-        return;
     }
 
     res->status(404);
 }
 
 #local
+PatternMatchResult :: union {
+    NoMatch: void;
+    Matched: i32;
+}
+
+#local
+pattern_match_routes :: (expected: [] Route.Elem, actual: [] Route.Elem, variables: &$T) -> PatternMatchResult {
+    matched_count := 0;
+    for iter.zip(
+        iter.as_iter(expected),
+        iter.as_iter(actual))
+    {
+        if it.second.tag == .Variable {
+            // Variables are illegal in provided `actual`
+            return .{ NoMatch = .{} };
+        }
+
+        provided_pattern := it.second.Fixed?;
+
+        switch it.first {
+            case .Fixed => expected_pattern {
+                if expected_pattern != provided_pattern do return .{ NoMatch = .{} };
+            }
+
+            case .Variable => variable_name {
+                array.push(variables, .{ variable_name, provided_pattern });
+            }
+        }
+
+        matched_count += 1;
+    }
+
+    if expected.count == 0 && actual.count != 0 {
+        return .{ NoMatch = .{} };
+    }
+
+    if matched_count != expected.count {
+        return .{ NoMatch = .{} };
+    }
+
+    return .{ Matched = matched_count };
+}
+
+#package
 process_url_to_route_elems :: (s: str) -> [] Route.Elem {
     if s == "/" do return .{};
 
@@ -252,14 +268,16 @@ process_url_to_route_elems :: (s: str) -> [] Route.Elem {
     }
 
     elem_count := core.slice.count_where(s, #(it == '/'));
-    elems := make([] Route.Elem, elem_count, long_term_allocator);
+    elems := make([..] Route.Elem, elem_count, long_term_allocator);
 
-    for iter.enumerate(core.string.split_iter(s, '/')->skip(1)) {
-        is_variable := it.value[0] == ':';
-        pattern := it.value;
-        if is_variable do string.advance(&pattern);
-
-        elems[it.index] = .{ pattern, is_variable };
+    for core.string.split_iter(s, '/')->skip(1) {
+        pattern := it;
+        if it[0] == ':' {
+            string.advance(&pattern);
+            elems << .{ Variable = pattern };
+        } else {
+            elems << .{ Fixed = pattern };
+        }
     }
 
     return elems;

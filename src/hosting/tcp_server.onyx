@@ -146,7 +146,7 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
         string.advance(&request_line);
 
         req.endpoint = string.read_until(&route, #char "?");
-        req.base_endpoint = req.endpoint;
+        req._processed_endpoint = process_url_to_route_elems(req.endpoint);
         string.advance(&route);
 
         parse_url_encoded_key_value(&req.query, &route);
