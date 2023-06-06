@@ -169,8 +169,8 @@ sort_routes :: (router: &Router) {
         x2 := b.elems.count;
 
         if x1 == x2 {
-            first_param_a := core.slice.find(a.elems, #(it.tag == .Variable));
-            first_param_b := core.slice.find(b.elems, #(it.tag == .Variable));
+            first_param_a := core.slice.find(a.elems, [v](v.tag == .Variable));
+            first_param_b := core.slice.find(b.elems, [v](v.tag == .Variable));
             
             if first_param_a != first_param_b {
                 return first_param_a - first_param_b;
@@ -267,7 +267,7 @@ process_url_to_route_elems :: (s: str) -> [] Route.Elem {
         return .{};
     }
 
-    elem_count := core.slice.count_where(s, #(it == '/'));
+    elem_count := core.slice.count_where(s, [c](c == '/'));
     elems := make([..] Route.Elem, elem_count, long_term_allocator);
 
     for core.string.split_iter(s, '/')->skip(1) {

@@ -138,7 +138,7 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
         method := string.read_until(&request_line, #char " ");
         string.advance(&request_line);
 
-        m := core.array.first(runtime.info.enum_values(HTTP_Method), #(it.name == method));
+        m := core.array.first(runtime.info.enum_values(HTTP_Method), [v](v.name == method));
         if m == null do req.method = .UNKNOWN;
         else         do req.method = ~~m.value;
 
