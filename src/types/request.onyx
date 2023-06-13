@@ -2,6 +2,7 @@ package http.server
 
 use runtime
 use core.encoding.json
+use core.memory
 
 Request :: struct {
     method: HTTP_Method;
