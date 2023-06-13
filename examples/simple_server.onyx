@@ -87,7 +87,7 @@ require_logon :: (req: &Req, res: &Res) {
 
         res->status(200);
 
-        html := core.tprintf("<h1>Hello, {}!</h1>", data->field(str, "name"));
+        html := core.tprintf("<h1>Hello, {}!</h1>", data->field(str, "name") ?? "whoever you are!");
         res->html(html);
 
         return;

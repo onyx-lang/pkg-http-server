@@ -212,9 +212,9 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
 
 
 #inject
-Request_Body_Form.field :: macro (form: &Request_Body_Form, $type: type_expr, field: str, default := type.{}) -> type {
+Request_Body_Form.field :: (form: &Request_Body_Form, $type: type_expr, field: str) -> ? type {
     if !(form.fields->has(field)) {
-        return default;
+        return .{};
     }
 
     if type == str {
@@ -226,5 +226,5 @@ Request_Body_Form.field :: macro (form: &Request_Body_Form, $type: type_expr, fi
         return v;
     }
 
-    return default;
+    return .{};
 }
