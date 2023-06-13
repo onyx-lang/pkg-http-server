@@ -138,6 +138,26 @@ Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     return .{ out };
 }
 
+#inject
+Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
+    use runtime.info {get_type_info}
+
+    out: T;
+
+    form := body->form();
+    defer delete(&form.fields);
+
+    for& member: get_type_info(T)->as_struct().members {
+        if member.type == str {
+            *cast(&str, memory.ptr_add(&out, member.offset)) = form.fields[member.name];
+        } else {
+            core.conv.parse_any(memory.ptr_add(&out, member.offset), member.type, form.fields[member.name]);
+        }
+    }
+
+    return out;
+}
+
 #package
 parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
     _, boundary_map := string.bisect(r.headers["content-type"], #char ";");
