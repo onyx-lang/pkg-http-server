@@ -8,7 +8,7 @@ main :: () {
     p := http.server.pipeline();
 
     p->add((req, res) => {
-        printf("{} was requested!\n", req.base_endpoint);
+        printf("{} was requested!\n", req.endpoint);
     });
 
     p->add((req, res) => {

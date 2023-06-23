@@ -110,9 +110,9 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
 guess_mime_type :: (filename: str) -> str {
     extension := filename[string.last_index_of(filename, #char ".")+1 .. filename.count];
 
-    if known_mimetypes->has(extension) {
-        return known_mimetypes[extension];
-    }
+    known_mimetypes->get(extension)->with([mimetype] {
+        return mimetype;
+    });
 
     //
     // This is a small list of mime types that should be expanded

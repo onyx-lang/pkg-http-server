@@ -11,7 +11,7 @@ cors_handler :: (c: &cors, req: &Request, res: &Response) {
     res.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS";
 
     if req.method == .OPTIONS {
-        res.headers["Access-Control-Allow-Headers"] = req.headers["access-control-request-headers"];
+        res.headers["Access-Control-Allow-Headers"] = req.headers["access-control-request-headers"] ?? "";
         res.headers["Access-Control-Max-Age"] = "86400";
         res->status(204);
         res->end();

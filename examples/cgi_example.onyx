@@ -1,5 +1,5 @@
 
-#load "./module"
+#load "module"
 
 use core
 use http

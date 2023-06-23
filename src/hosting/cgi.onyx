@@ -41,11 +41,11 @@ make_request_from_env :: () -> Request {
 
     req: Request;
 
-    req.method = info.enum_value(typeof req.method, env["REQUEST_METHOD"]);
-    req.endpoint = env->get_opt("PATH_TRANSLATED") ?? env->get("PATH_INFO");
+    req.method = info.enum_value(typeof req.method, env["REQUEST_METHOD"] ?? "");
+    req.endpoint = env->get("PATH_TRANSLATED") ?? (env->get("PATH_INFO") ?? "");
     req._processed_endpoint = process_url_to_route_elems(req.endpoint);
 
-    req.address.ip = env["REMOTE_ADDR"];
+    req.address.ip = env["REMOTE_ADDR"] ?? "";
 
     for iter.as_iter(env) {
         if string.starts_with(it.key, "HTTP_") {
@@ -53,14 +53,14 @@ make_request_from_env :: () -> Request {
         }
     }
 
-    req.headers["content-type"]   = env["HTTP_CONTENT_TYPE"];
-    req.headers["user-agent"]     = env["HTTP_USER_AGENT"];
-    req.headers["content-length"] = env["HTTP_CONTENT_LENGTH"];
+    req.headers["content-type"]   = env["HTTP_CONTENT_TYPE"] ?? "";
+    req.headers["user-agent"]     = env["HTTP_USER_AGENT"] ?? "";
+    req.headers["content-length"] = env["HTTP_CONTENT_LENGTH"] ?? "";
 
-    query_string := env["QUERY_STRING"];
+    query_string := env["QUERY_STRING"] ?? "";
     parse_url_encoded_key_value(&req.query, &query_string);
     
-    parse_cookies(env["HTTP_COOKIE"], &req.cookies);
+    parse_cookies(env["HTTP_COOKIE"] ?? "", &req.cookies);
 
     r := io.reader_make(&stdio.stream);
     req.body.contents = r->read_all();

@@ -1,7 +1,7 @@
 #load "core/std"
 
 #load_path "./lib"
-#load "./module"
+#load "module"
 
 use core {package, tprintf}
 use http
@@ -105,7 +105,7 @@ require_logon :: (req: &Req, res: &Res) {
 @Route.{.GET, "/locked"}
 (req: &Req, res: &Res) {
     if req.headers->has("authorization") {
-        auth := req.headers["authorization"];
+        auth := req.headers["authorization"] ?? "";
 
         if core.string.starts_with(auth, "Basic ") {
             core.string.advance(&auth, "Basic ".length);
