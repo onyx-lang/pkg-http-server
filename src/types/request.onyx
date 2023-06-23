@@ -147,10 +147,11 @@ Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
     defer delete(&form.fields);
 
     for& member: get_type_info(T)->as_struct().members {
+        field := form.fields[member.name] ?? "";
         if member.type == str {
-            *cast(&str, memory.ptr_add(&out, member.offset)) = form.fields[member.name] ?? "";
+            *cast(&str, memory.ptr_add(&out, member.offset)) = field;
         } else {
-            core.conv.parse_any(memory.ptr_add(&out, member.offset), member.type, form.fields[member.name]);
+            core.conv.parse_any(memory.ptr_add(&out, member.offset), member.type, field);
         }
     }
 
