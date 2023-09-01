@@ -150,7 +150,12 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
 
         pipes->add(*cast(&HTTP_Handler) &it.func);
 
-        router_add_route(router, it.tag.method, it.tag.route, pipes);
+        for tag: runtime.info.get_tags_for_procedure(it.func) {
+            if tag.type == route {
+                r := cast(&route) tag.data;
+                router_add_route(router, r.method, r.route, pipes);
+            }
+        }
     }
 }
 

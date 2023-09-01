@@ -20,7 +20,7 @@ logger_log_request :: (l: &Logger, req: &Request, res: &Response) {
         "{} {} {}{} - {}\n",
         req.address.ip,
         req.method,
-        req.headers["host"], req.endpoint,
+        req.headers["host"] ?? "", req.endpoint,
         res.status_code);
 
     io.writer_flush(&l.writer);
