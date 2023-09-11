@@ -107,27 +107,30 @@ response_finalize :: (res: &Response) {
         res->body("text/plain", "Not found.");
     }
 
-    content := string.as_str(res.output);
-    res.headers["Content-Length"] = core.tprintf("{}", content.length);
     res.headers["Server"] = "Onyx-Http";
+
+    content := string.as_str(res.output);
+    if content.length > 16 * 1024 {
+        res.headers["Transfer-Encoding"] = "chunked";
+    } else {
+        res.headers["Content-Length"] = core.tprintf("{}", content.length);
+    }
 
     if res.status_code == 0 {
         res.status_code = 404;
     }
 
     // Add the Date header.
-    t := os.time();
-    timestamp: time.Timestamp;
-    time.gmtime(t / 1000, &timestamp);
+    t := time.now();
 
     buf: [128] u8;
-    formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", &timestamp);
+    formatted_time := time.strftime(buf, "%a, %d %b %Y %H:%M:%S +0000", &t);
     res.headers["Date"] = formatted_time |> string.alloc_copy();
 }
 
 #package
 send_response :: (res: &Response, s: &io.Stream) {
-    w := io.writer_make(s);
+    w := io.writer_make(s, 0);
 
     io.write_format(&w, "HTTP/1.1 {} {}\r\n",
         res.status_code,
@@ -143,7 +146,26 @@ send_response :: (res: &Response, s: &io.Stream) {
 
     io.write(&w, "\r\n");
 
-    io.write(&w, string.as_str(res.output));
+    contents := string.as_str(res.output);
+
+    if contents.length > 16 * 1024 {
+        remaining := contents.length;
+        while remaining > 0 {
+            to_send := core.math.min(remaining, 16 * 1024);
+            io.write(&w, core.tprintf("{b16}\r\n", to_send));
+            io.write(&w, contents[0 .. to_send]);
+            io.write(&w, "\r\n");
+
+            string.advance(&contents, to_send);
+            remaining -= to_send;
+        }
+
+        io.write(&w, "0\r\n\r\n");
+
+    } else {
+        io.write(&w, contents);
+    }
+
     io.writer_free(&w);
 }
 

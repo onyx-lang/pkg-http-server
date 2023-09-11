@@ -137,6 +137,13 @@ require_logon :: (req: &Req, res: &Res) {
     res->status(200);
 }
 
+@Route.{.GET, "/long"}
+(req: &Req, res: &Res) {
+    s := core.random.string(100000, alpha_numeric=true);
+    res->html(s);
+    res->status(200);
+}
+
 
 Input :: struct {
     name: str;
