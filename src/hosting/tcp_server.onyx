@@ -108,7 +108,10 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.S
         tcp.pipeline->process(&req, &res);
 
         response_finalize(&res);
+
+        s->setting(.NonBlocking, 0);
         send_response(&res, s);
+        s->setting(.NonBlocking, 1);
     }
 
     return true;

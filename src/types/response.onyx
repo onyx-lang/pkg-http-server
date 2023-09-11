@@ -22,6 +22,8 @@ Response :: struct {
 
     cookies: Map(str, str);
 
+    is_chunked: bool = false;
+
     completed := false;
 }
 
@@ -81,6 +83,11 @@ Response.status :: macro (res: &Response, status: u32) {
 }
 
 #inject
+Response.chunked :: macro (res: &Response, chunked := true) {
+    res.chunked = true;
+}
+
+#inject
 Response.cookie :: macro (res: &Response, key: str, value: str) {
     res.cookies[key] = value;
 }
@@ -109,10 +116,10 @@ response_finalize :: (res: &Response) {
 
     res.headers["Server"] = "Onyx-Http";
 
-    content := string.as_str(res.output);
-    if content.length > 16 * 1024 {
+    if res.is_chunked {
         res.headers["Transfer-Encoding"] = "chunked";
     } else {
+        content := string.as_str(res.output);
         res.headers["Content-Length"] = core.tprintf("{}", content.length);
     }
 
@@ -148,7 +155,7 @@ send_response :: (res: &Response, s: &io.Stream) {
 
     contents := string.as_str(res.output);
 
-    if contents.length > 16 * 1024 {
+    if res.is_chunked {
         remaining := contents.length;
         while remaining > 0 {
             to_send := core.math.min(remaining, 16 * 1024);
