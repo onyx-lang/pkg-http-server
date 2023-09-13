@@ -32,6 +32,8 @@ Route :: struct {
     elems: [] Elem;
     pipeline: Pipeline;
     
+    match_all: bool;
+
     Elem :: union {
         Fixed: str;
         Variable: str;
@@ -75,18 +77,20 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: H
         method = method,
         pipeline = pipes,
         elems = process_url_to_route_elems(route),
+        match_all = true,
     };
 
     sort_routes(router);
 }
 
 #overload
-router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pipeline: Pipeline) {
+router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pipeline: Pipeline, match_all := false) {
     Route :: Route
     router.routes << Route.{
         method = method,
         pipeline = pipeline,
         elems = process_url_to_route_elems(route),
+        match_all = match_all,
     };
 
     sort_routes :: sort_routes
@@ -107,6 +111,7 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: $
         method = method,
         pipeline = pipes,
         elems = process_url_to_route_elems(route),
+        match_all = false,
     };
 
     sort_routes :: sort_routes
@@ -122,6 +127,7 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, steps: ..
         method = method,
         pipeline = pipes,
         elems = process_url_to_route_elems(route),
+        match_all = false,
     };
 
     sort_routes :: sort_routes
@@ -153,7 +159,7 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
         for tag: runtime.info.get_tags_for_procedure(it.func) {
             if tag.type == route {
                 r := cast(&route) tag.data;
-                router_add_route(router, r.method, r.route, pipes);
+                router_add_route(router, r.method, r.route, pipes, true);
             }
         }
     }
@@ -207,13 +213,18 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
         core.array.clear(&tmp_url_params);
 
         matched_parts := pattern_match_routes(it.elems, req._processed_endpoint, &tmp_url_params).Matched;
-        if matched_parts {
-            for tmp_url_params do req.url_params[it.name] = it.value;
-            req._processed_endpoint = req._processed_endpoint[matched_parts? .. req._processed_endpoint.length];
+        if !matched_parts do continue;
 
-            it.pipeline->process(req, res);
-            return;
+        if it.match_all && matched_parts->unwrap() != req._processed_endpoint.length {
+            // If we have to match the entire rest of the route, and we didn't, skip this one.
+            continue;
         }
+
+        for tmp_url_params do req.url_params[it.name] = it.value;
+        req._processed_endpoint = req._processed_endpoint[matched_parts? .. req._processed_endpoint.length];
+
+        it.pipeline->process(req, res);
+        return;
     }
 
     res->status(404);
