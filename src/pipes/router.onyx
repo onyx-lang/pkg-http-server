@@ -176,19 +176,19 @@ pattern_length :: macro (v: Route.Elem) -> i32 {
 #local
 sort_routes :: (router: &Router) {
     core.slice.sort(router.routes, (a, b) => {
-        for items: iter.zip(
-            iter.as_iter(a.elems),
-            iter.as_iter(b.elems)
-        ) {
+        for i: core.math.min(a.elems.count, b.elems.count) {
+            left := a.elems[i];
+            right := b.elems[i];
+
             // Different: fixed first
-            if items.first.tag != items.second.tag {
-                return 1 if items.second.tag == .Fixed else -1;
+            if left.tag != right.tag {
+                return 1 if right.tag == .Fixed else -1;
             }
 
             // Same and fixed: longer string first
-            if items.first.tag == .Fixed {
-                s1 := items.first.Fixed?;
-                s2 := items.second.Fixed?;
+            if left.tag == .Fixed {
+                s1 := left.Fixed?;
+                s2 := right.Fixed?;
 
                 // Same, fixed, and same string, continue
                 if s1 == s2 {
@@ -201,8 +201,8 @@ sort_routes :: (router: &Router) {
             // Same and variable: continue
         }
 
-        logf(.Debug, "Conflicting routes: {}, {}", a.elems, b.elems);
-        return 0;
+        // logf(.Debug, "Conflicting routes: {}, {}", a.elems, b.elems);
+        return b.elems.count - a.elems.count;
 
         // x1 := a.elems.count;
         // x2 := b.elems.count;
