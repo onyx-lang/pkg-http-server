@@ -131,6 +131,13 @@ require_logon :: (req: &Req, res: &Res) {
     res->status(200);
 }
 
+@Route.{.GET, "/url/:param1/params/:param2" }
+(req: &Req, res: &Res) {
+    core.println("Hit the weird case!");
+    core.println(req.url_params);
+    res->status(200);
+}
+
 @Route.{.GET, "/url/params" }
 (req: &Req, res: &Res) {
     core.println("Please provide params");
