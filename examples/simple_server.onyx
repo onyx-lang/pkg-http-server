@@ -202,6 +202,6 @@ main :: () {
     logger := http.server.logger();
     app->pipe(&logger);
 
-    tcp := http.server.tcp(app);
+    tcp := http.server.tcp(app, .{ thread_count = 8 });
     tcp->serve(8080);
 }

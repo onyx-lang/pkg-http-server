@@ -12,11 +12,14 @@ package http.server
     iter   :: core.iter
     conv   :: core.conv
     time   :: core.time
+    sync   :: core.sync
+    array  :: core.array
 }
 
 use runtime
 #if runtime.runtime == .Onyx {
     #package net :: core.net
+    #package thread :: core.thread
     #load "./src/hosting/tcp_server"
 }
 

@@ -6,36 +6,62 @@ TCP_Server :: struct {
     server: &net.TCP_Server;
     pipeline: Pipeline;
 
-    session_gc: alloc.gc.GCState;
+    thread_pool: [] thread.Thread;
+
+    ready_clients:   [..] &net.TCP_Server.Client;
+    ready_mutex:     sync.Mutex;
+    ready_semaphore: sync.Semaphore;
 }
 
-#inject TCP_Server {
-    serve :: tcp_serve;
+TCP_Server_Settings :: struct {
+    thread_count := 0;
 }
 
 tcp :: #match {}
 
 #overload
-tcp :: (pipeline: Pipeline) => TCP_Server.{ pipeline = pipeline };
+tcp :: (pipeline: Pipeline, settings := TCP_Server_Settings.{}) -> &TCP_Server {
+    threads := make([] thread.Thread, settings.thread_count);
+
+    server := long_term_allocator->move(TCP_Server.{
+        pipeline = pipeline,
+        thread_pool = threads,
+    });
+
+    sync.semaphore_init(&server.ready_semaphore, 0);
+    sync.mutex_init(&server.ready_mutex);
+    array.init(&server.ready_clients, 4, long_term_allocator);
+
+    for& t: threads {
+        thread.spawn(t, server, tcp_server_thread);
+    }
+
+    return server;
+}
 
 #overload
-tcp :: (p: $P/Pipeable) -> TCP_Server {
+tcp :: (p: $P/Pipeable, settings := TCP_Server_Settings.{}) -> &TCP_Server {
     pipe := pipeline();
     pipe->pipe(p);
-    return TCP_Server.{ pipeline = pipe };
+    return tcp(pipe);
 }
+
+
+
 
 Serve_Status :: enum {
     Success;
     Failed_To_Bind;
 }
 
-#package
-tcp_serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
-    tcp.session_gc = alloc.gc.make();
-
+#inject
+TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
     tcp.server = net.tcp_server_make(max_clients=16);
     tcp.server.emit_data_events = false;
+
+    if tcp.thread_pool {
+        tcp.server.emit_ready_event_multiple_times = true;
+    }
 
     // Allows the server to be immediately restarted. Not
     // the safest, but it is fine for a development instance.
@@ -43,7 +69,7 @@ tcp_serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
     if !(tcp.server->listen(~~port)) {
         log(.Error, "HTTP-Server", core.tprintf("Failed to bind to port {}.\n", port));
-        return .Success;
+        return .Failed_To_Bind;
     }
 
     log(.Info, "HTTP-Server", core.tprintf("Serving on port {}", port));
@@ -61,20 +87,55 @@ tcp_serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
                 continue;
             }
 
-            use_gc_allocator_in_current_scope(&tcp.session_gc);
-            defer alloc.clear_temp_allocator();
-
-            if !handle_request(tcp, &ready_client.address, &ready_client.socket) {
-                // If the request fails to parse, shutdown the connection.
-                // Likely, this is actually due to the socket being empty
-                // and/or already closed, but you can't tell until you try
-                // to read from it.
-                tcp.server->kill_client(ready_client);
+            if !tcp.thread_pool {
+                outer_handle_request(tcp, ready_client);
 
             } else {
-                ready_client->read_complete();
+                // HACK: This should be taken care of already and we should be able to
+                // set `emit_ready_event_multiple_times` to be false. But because of a
+                // timing issue with the current implementation of the TCP server, it
+                // is not possible.
+                if array.contains(tcp.ready_clients, ready_client) {
+                    continue;
+                }
+
+                sync.critical_section(&tcp.ready_mutex) {
+                    array.push(&tcp.ready_clients, ready_client);
+                }
+
+                sync.semaphore_post(&tcp.ready_semaphore);
             }
         }
+    }
+}
+
+#local
+tcp_server_thread :: (tcp: &TCP_Server) {
+    while true {
+        sync.semaphore_wait(&tcp.ready_semaphore);
+
+        client: #auto;
+        sync.critical_section(&tcp.ready_mutex) {
+            client = tcp.ready_clients[0];
+            array.delete(&tcp.ready_clients, 0);
+        }
+
+        outer_handle_request(tcp, client);
+    }
+}
+
+#local
+outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
+    session_gc := alloc.gc.make();
+
+    use_gc_allocator_in_current_scope(&session_gc);
+    defer alloc.clear_temp_allocator();
+
+    if !handle_request(tcp, &client.address, &client.socket) {
+        tcp.server->kill_client(client);
+
+    } else {
+        client->read_complete();
     }
 }
 
@@ -186,6 +247,7 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
 use_gc_allocator_in_current_scope :: macro (gc: &alloc.gc.GCState) {
     old_allocator := context.allocator;
     context.allocator = alloc.as_allocator(gc);
+
     defer {
         alloc.gc.clear(gc);
         context.allocator = old_allocator;
