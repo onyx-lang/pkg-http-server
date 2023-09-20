@@ -29,8 +29,11 @@ Request_Address :: struct {
 }
 
 Request_Body :: struct {
-    contents: str;
-    request:  &Request;
+    reader:  &io.Reader;
+    request: &Request;
+
+    // If the body has been read from the reader.
+    read := false;
 }
 
 Request_Body_Form :: struct {
@@ -76,6 +79,38 @@ request_free :: (req: &Request) {
     delete(&req.url_params);
 }
 
+
+#inject
+Request_Body.raw :: (body: &Request_Body) -> str {
+    req := body.request;
+
+    req.headers->get("transfer-encoding")->with([encoding] {
+        if encoding == "chunked" {
+
+        }
+    });
+
+    if content_length_str := req.headers->get("content-length"); content_length_str {
+        content_length := cast(u32) (content_length_str->unwrap() |> conv.str_to_i64());
+        if content_length == 0 {
+            return "";
+        }
+ 
+        content := make([] u8, content_length);
+        index := 0;
+        while index < content_length {
+            read, err := body.reader->read_bytes(content[index .. content_length]);
+            index += read;
+        }
+
+        body.read = true;
+
+        return content;
+    }
+
+    return "";
+}
+
 #inject
 Request_Body.is_json :: (body: &Request_Body) -> bool {
     content_type := body.request.headers["content-type"] ?? "";
@@ -89,17 +124,19 @@ Request_Body.is_json :: (body: &Request_Body) -> bool {
 }
 
 #inject
-Request_Body.json :: (body: &Request_Body) -> json.Json {
+Request_Body.json :: (body: &Request_Body) -> ? json.Json {
     if !(body->is_json()) do return .{};
 
-    return json.decode(body.contents);
+    contents := body->raw();
+
+    return json.decode(contents);
 }
 
 #inject
 Request_Body.json_as :: macro (body: &Request_Body, $T: type_expr) -> T {
     json :: json
 
-    j := json.decode(body.contents);
+    j := json.decode(body->raw());
     defer json.free(j);
 
     out: T;
@@ -123,7 +160,7 @@ Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     content_type := body.request.headers["content-type"] ?? "";
     content_type  = string.read_until(&content_type, ";");
 
-    content := body.contents;
+    content := body->raw();
     switch content_type {
         case "application/x-www-form-urlencoded" {
             parse_url_encoded_key_value(&out, &content);
@@ -177,7 +214,7 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
 
     boundary_delimiter := core.tprintf("--{}\r\n", boundary);
 
-    content := r.body.contents;
+    content := r.body->raw();
     while true {
         line := string.read_until(&content, #char "\n");
         string.advance(&content, 1);
@@ -214,14 +251,15 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
 Request_Body_Form.field :: (form: &Request_Body_Form, $type: type_expr, field: str) -> ? type {
     field_value := form.fields->get(field)?;
 
-    if type == str {
-        return *cast(&type) &form.fields[field];
-    }
+    #if type == str {
+        return field_value;
 
-    v: type;
-    if core.conv.parse_any(&v, field_value) {
-        return v;
-    }
+    } else {
+        v: type;
+        if core.conv.parse_any(&v, field_value) {
+            return v;
+        }
 
-    return .{};
+        return .{};
+    }
 }

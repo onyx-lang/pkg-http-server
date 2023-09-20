@@ -107,6 +107,12 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.S
         // Process the request!
         tcp.pipeline->process(&req, &res);
 
+        // If the body was not read for some reason,
+        // we need to read it before we can read the next request.
+        if !req.body.read {
+            req.body->raw();
+        }
+
         response_finalize(&res);
 
         s->setting(.NonBlocking, 0);
@@ -168,30 +174,12 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
         req.headers[header] = value;
     }
 
-    parse_body(req, r);
+    req.body.request = req;
+    req.body.reader = r;
+
     return true;
 }
 
-#local
-parse_body :: (req: &Request, r: &io.Reader) {
-    req.body.request = req;
-
-    req.headers->get("content-length")->with([content_length_str] {
-        body_length := cast(u32) (content_length_str |> conv.str_to_i64());
-        if body_length == 0 {
-            return;
-        }
-
-        body := make([] u8, body_length);
-        index := 0;
-        while index < body_length {
-            read, err := r->read_bytes(body[index .. body_length]);
-            index += read;
-        }
-
-        req.body.contents = body;
-    });
-}
 
 
 #local

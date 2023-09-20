@@ -62,8 +62,7 @@ make_request_from_env :: () -> Request {
     
     parse_cookies(env["HTTP_COOKIE"] ?? "", &req.cookies);
 
-    r := io.reader_make(&stdio.stream);
-    req.body.contents = r->read_all();
+    req.body.reader = alloc.on_heap(io.reader_make(&stdio.stream));
 
     return req;
 }

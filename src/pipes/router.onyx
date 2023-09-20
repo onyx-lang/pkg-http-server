@@ -201,24 +201,7 @@ sort_routes :: (router: &Router) {
             // Same and variable: continue
         }
 
-        // logf(.Debug, "Conflicting routes: {}, {}", a.elems, b.elems);
         return b.elems.count - a.elems.count;
-
-        // x1 := a.elems.count;
-        // x2 := b.elems.count;
-
-        // if x1 == x2 {
-        //     first_param_a := core.slice.find(a.elems, [v](v.tag == .Variable));
-        //     first_param_b := core.slice.find(b.elems, [v](v.tag == .Variable));
-        //     
-        //     if first_param_a != first_param_b {
-        //         return first_param_a - first_param_b;
-        //     }
-
-        //     return pattern_length(b.elems[b.elems.length - 1]) - pattern_length(a.elems[a.elems.length - 1]);
-        // } else {
-        //     return x2 - x1;
-        // }
     });
 }
 
