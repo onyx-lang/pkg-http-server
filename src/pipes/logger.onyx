@@ -17,7 +17,8 @@ logger_log_request :: (l: &Logger, req: &Request, res: &Response) {
     // This should have the ability to change the logging format.
     io.write_format(
         &l.writer,
-        "{} {} {}{} - {}\n",
+        "[{}] {} {} {}{} - {}\n",
+        context.thread_id,
         req.address.ip,
         req.method,
         req.headers["host"] ?? "", req.endpoint,

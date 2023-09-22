@@ -10,10 +10,13 @@ TCP_Server :: struct {
 
     ready_clients:   [..] &net.TCP_Server.Client;
     ready_mutex:     sync.Mutex;
-    ready_semaphore: sync.Semaphore;
+    ready_condvar:   sync.Condition_Variable;
+
+    max_clients: i32;
 }
 
 TCP_Server_Settings :: struct {
+    max_clients := 32;
     thread_count := 0;
 }
 
@@ -26,9 +29,10 @@ tcp :: (pipeline: Pipeline, settings := TCP_Server_Settings.{}) -> &TCP_Server {
     server := long_term_allocator->move(TCP_Server.{
         pipeline = pipeline,
         thread_pool = threads,
+        max_clients = settings.max_clients
     });
 
-    sync.semaphore_init(&server.ready_semaphore, 0);
+    sync.condition_init(&server.ready_condvar);
     sync.mutex_init(&server.ready_mutex);
     array.init(&server.ready_clients, 4, long_term_allocator);
 
@@ -43,7 +47,7 @@ tcp :: (pipeline: Pipeline, settings := TCP_Server_Settings.{}) -> &TCP_Server {
 tcp :: (p: $P/Pipeable, settings := TCP_Server_Settings.{}) -> &TCP_Server {
     pipe := pipeline();
     pipe->pipe(p);
-    return tcp(pipe);
+    return tcp(pipe, settings);
 }
 
 
@@ -56,12 +60,8 @@ Serve_Status :: enum {
 
 #inject
 TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
-    tcp.server = net.tcp_server_make(max_clients=16);
+    tcp.server = net.tcp_server_make(max_clients=tcp.max_clients);
     tcp.server.emit_data_events = false;
-
-    if tcp.thread_pool {
-        tcp.server.emit_ready_event_multiple_times = true;
-    }
 
     // Allows the server to be immediately restarted. Not
     // the safest, but it is fine for a development instance.
@@ -74,11 +74,6 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
     log(.Info, "HTTP-Server", core.tprintf("Serving on port {}", port));
     tcp.server->handle_events() {
-        case .Connection {
-            // Enable non-blocking communication on all sockets
-            cast(&core.net.TCP_Event.Connection, it.data).client.socket->setting(.NonBlocking, 1);
-        }
-
         case .Ready {
             ready_client := cast(&core.net.TCP_Event.Ready, it.data).client;
             if ready_client.socket.vtable == null || ready_client.state != .Alive {
@@ -91,19 +86,10 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
                 outer_handle_request(tcp, ready_client);
 
             } else {
-                // HACK: This should be taken care of already and we should be able to
-                // set `emit_ready_event_multiple_times` to be false. But because of a
-                // timing issue with the current implementation of the TCP server, it
-                // is not possible.
-                if array.contains(tcp.ready_clients, ready_client) {
-                    continue;
-                }
-
                 sync.critical_section(&tcp.ready_mutex) {
                     array.push(&tcp.ready_clients, ready_client);
+                    sync.condition_broadcast(&tcp.ready_condvar);
                 }
-
-                sync.semaphore_post(&tcp.ready_semaphore);
             }
         }
     }
@@ -111,11 +97,13 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
 #local
 tcp_server_thread :: (tcp: &TCP_Server) {
+    client: #auto;
     while true {
-        sync.semaphore_wait(&tcp.ready_semaphore);
-
-        client: #auto;
         sync.critical_section(&tcp.ready_mutex) {
+            while (tcp.ready_clients.length == 0) {
+                sync.condition_wait(&tcp.ready_condvar, &tcp.ready_mutex);
+            }
+
             client = tcp.ready_clients[0];
             array.delete(&tcp.ready_clients, 0);
         }
@@ -132,6 +120,8 @@ outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
     defer alloc.clear_temp_allocator();
 
     if !handle_request(tcp, &client.address, &client.socket) {
+        // Close the connection if we failed to read the request.
+        io.stream_write(&client.socket, "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n");
         tcp.server->kill_client(client);
 
     } else {
@@ -143,6 +133,11 @@ outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
 handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
     req := Request.{ address = .{ req_address->addr_as_str() } };
     defer request_free(&req);
+
+    // If the stream is no longer set up correctly, abandon it.
+    if s.vtable == null {
+        return false;
+    }
 
     reader := io.reader_make(s);
     defer io.reader_free(&reader);
@@ -176,9 +171,7 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.S
 
         response_finalize(&res);
 
-        s->setting(.NonBlocking, 0);
         send_response(&res, s);
-        s->setting(.NonBlocking, 1);
     }
 
     return true;
