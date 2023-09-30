@@ -262,11 +262,11 @@ pattern_match_routes :: (expected: [] Route.Elem, actual: [] Route.Elem, variabl
         provided_pattern := it.second.Fixed?;
 
         switch it.first {
-            case .Fixed => expected_pattern {
+            case expected_pattern: .Fixed {
                 if expected_pattern != provided_pattern do return .{ NoMatch = .{} };
             }
 
-            case .Variable => variable_name {
+            case variable_name: .Variable {
                 array.push(variables, .{ variable_name, provided_pattern });
             }
         }
