@@ -65,9 +65,9 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
     // Allows the server to be immediately restarted. Not
     // the safest, but it is fine for a development instance.
-    tcp.server.socket->setting(.ReuseAddress, 1);
+    tcp.server.socket->option(.ReuseAddress, true);
 
-    if !(tcp.server->listen(~~port)) {
+    if !tcp.server->listen(~~port) {
         log(.Error, "HTTP-Server", core.tprintf("Failed to bind to port {}.\n", port));
         return .Failed_To_Bind;
     }
@@ -130,12 +130,12 @@ outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
 }
 
 #local
-handle_request :: (tcp: &TCP_Server, req_address: &net.Socket_Address, s: &net.Socket) -> bool {
+handle_request :: (tcp: &TCP_Server, req_address: &net.SocketAddress, s: &net.Socket) -> bool {
     req := Request.{ address = .{ req_address->addr_as_str() } };
     defer request_free(&req);
 
     // If the stream is no longer set up correctly, abandon it.
-    if s.vtable == null {
+    if !s.alive || s.vtable == null {
         return false;
     }
 
