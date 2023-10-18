@@ -17,7 +17,9 @@ package http.server
 }
 
 use runtime
-#if runtime.runtime == .Onyx {
+#if    (runtime.runtime == .Onyx)
+    || (runtime.runtime == .Wasi && #defined(runtime.vars.WASIX))
+{
     #package net :: core.net
     #package thread :: core.thread
     #load "./src/hosting/tcp_server"
