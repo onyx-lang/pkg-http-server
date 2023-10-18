@@ -208,6 +208,10 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
         route := string.read_until(&request_line, #char " ");
         string.advance(&request_line);
 
+        if string.starts_with(route, "http://") || string.starts_with(route, "https://") {
+            string.read_until(&route, "/", 2);
+        }
+
         req.endpoint = string.read_until(&route, #char "?");
         req._processed_endpoint = process_url_to_route_elems(req.endpoint);
         string.advance(&route);
