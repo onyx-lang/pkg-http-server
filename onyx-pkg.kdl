@@ -1,0 +1,13 @@
+package {
+    name "http-server" 
+    author "Brendan Hansen" 
+    url "git://onyxlang.io/repo/http-server" 
+    description "A HTTP/1.1 server implemented in Onyx" 
+    version "0.2.23" 
+}
+
+config {
+    dependency_source_path "./lib" 
+    dependency_binary_path "./bin" 
+}
+
