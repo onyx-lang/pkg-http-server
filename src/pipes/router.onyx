@@ -235,6 +235,10 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
         req._processed_endpoint = req._processed_endpoint[matched_parts? .. req._processed_endpoint.length];
 
         it.pipeline->process(req, res);
+
+        // Should this really return here?
+        // What if the matched route is a subrouter that fails, but
+        // another route would later match better?
         return;
     }
 
@@ -312,4 +316,4 @@ process_url_to_route_elems :: (s: str) -> [] Route.Elem {
 
 
 #overload
-convert_to_pipe :: macro (r: &Router) => Pipe.{router_route_request, r};
+Pipeable.as_pipe :: macro (r: &Router) => Pipe.{router_route_request, r};

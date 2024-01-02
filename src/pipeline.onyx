@@ -32,13 +32,13 @@ pipeline_add_step :: #match #local {}
 
 #overload
 pipeline_add_step :: (p: &Pipeline, s: HTTP_Handler) {
-    step := convert_to_pipe(s);
+    step := Pipeable.as_pipe(s);
     p.steps << step;
 }
 
 #overload
 pipeline_add_step :: (p: &Pipeline, s: $T/Pipeable) {
-    step := convert_to_pipe(s);
+    step := Pipeable.as_pipe(s);
     p.steps << step;
 }
 
@@ -57,17 +57,18 @@ pipeline_process :: (p: &Pipeline, req: &Request, res: &Response) {
 }
 
 
-convert_to_pipe :: #match {}
 Pipeable :: interface (t: $T) {
-    { convert_to_pipe(t) } -> Pipe;
+    { as_pipe(t) } -> Pipe;
+
+    as_pipe :: #match {}
 }
 
 
 #overload
-convert_to_pipe :: macro (p: &Pipeline) => Pipe.{pipeline_process, p};
+Pipeable.as_pipe :: macro (p: &Pipeline) => Pipe.{pipeline_process, p};
 
 #overload
-convert_to_pipe :: macro (h: HTTP_Handler) => {
+Pipeable.as_pipe :: macro (h: HTTP_Handler) => {
     handler :: (f: &HTTP_Handler, req: &Request, res: &Response) {
         (*f)(req, res);
     }

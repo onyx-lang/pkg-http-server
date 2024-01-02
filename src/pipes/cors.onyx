@@ -19,5 +19,5 @@ cors_handler :: (c: &cors, req: &Request, res: &Response) {
 }
 
 #overload
-convert_to_pipe :: (c: &cors) => Pipe.{cors_handler, c};
+Pipeable.as_pipe :: (c: &cors) => Pipe.{cors_handler, c};
 

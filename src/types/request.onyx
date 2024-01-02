@@ -160,9 +160,9 @@ Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     content_type := body.request.headers["content-type"] ?? "";
     content_type  = string.read_until(&content_type, ";");
 
-    content := body->raw();
     switch content_type {
         case "application/x-www-form-urlencoded" {
+            content := body->raw();
             parse_url_encoded_key_value(&out, &content);
         }
 

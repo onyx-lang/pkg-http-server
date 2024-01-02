@@ -63,7 +63,7 @@ logger_log_request :: (l: &Logger, req: &Request, res: &Response) {
 }
 
 #overload
-convert_to_pipe :: macro (l: &Logger) => Pipe.{
+Pipeable.as_pipe :: macro (l: &Logger) => Pipe.{
     logger_log_request,
     l,
     execute_after_request = true,

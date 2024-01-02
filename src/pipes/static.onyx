@@ -35,4 +35,4 @@ static_file_router_handle :: (sf: &Static_File_Router, req: &Request, res: &Resp
 }
 
 #overload
-convert_to_pipe :: macro (sf: &Static_File_Router) => Pipe.{ sf.handle, sf };
+Pipeable.as_pipe :: macro (sf: &Static_File_Router) => Pipe.{ sf.handle, sf };
