@@ -39,7 +39,9 @@ urlencode :: (s: str, allocator := context.allocator) -> str {
         match(#char "+", "%2B");
         match(#char ",", "%2C");
         match(#char ";", "%3B");
+        match(#char "<", "%3C");
         match(#char "=", "%3D");
+        match(#char ">", "%3E");
         match(#char "%", "%25");
         match(#char " ", "%20");
 
@@ -87,7 +89,9 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
                 match(0x2B, #char "+");
                 match(0x2C, #char ",");
                 match(0x3B, #char ";");
+                match(0x3C, #char "<");
                 match(0x3D, #char "=");
+                match(0x3E, #char ">");
                 match(0x25, #char "%");
                 match(0x20, #char " ");
 
