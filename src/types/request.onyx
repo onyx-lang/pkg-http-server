@@ -37,7 +37,7 @@ Request_Body :: struct {
 }
 
 Request_Body_Form :: struct {
-    fields: Map(str, str);
+    fields: Map(str, [..] str);
 }
 
 
@@ -155,7 +155,7 @@ Request_Body.is_form :: (body: &Request_Body) -> bool {
 
 #inject
 Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
-    out := make(Map(str, str));
+    out := make(Map(str, [..] str));
 
     content_type := body.request.headers["content-type"] ?? "";
     content_type  = string.read_until(&content_type, ";");
@@ -163,7 +163,7 @@ Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     switch content_type {
         case "application/x-www-form-urlencoded" {
             content := body->raw();
-            parse_url_encoded_key_value(&out, &content);
+            parse_url_encoded_key_value_multi(&out, &content);
         }
 
         case "multipart/form-data" {
@@ -184,7 +184,7 @@ Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
     defer delete(&form.fields);
 
     for& member: get_type_info(T)->as_struct().members {
-        field := form.fields[member.name] ?? "";
+        field := (form.fields[member.name] ?? .[""])[0];
         if member.type == str {
             *cast(&str, memory.ptr_add(&out, member.offset)) = field;
         } else {
@@ -196,7 +196,7 @@ Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
 }
 
 #package
-parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
+parse_multipart_form_data :: (r: &Request, dest: &Map(str, [..] str)) {
     _, boundary_map := string.bisect(r.headers["content-type"] ?? "", #char ";");
     key, value      := string.bisect(boundary_map, #char "=");
     string.strip_leading_whitespace(&key);
@@ -240,7 +240,8 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, str)) {
         part_value := string.read_until(&content, core.tprintf("\r\n--{}", boundary))
                       |> string.strip_leading_whitespace();
 
-        dest->put(part_name, part_value);
+        values := dest->get_ptr_or_create(key);
+        array.push(values, value);
 
         string.advance_line(&content);
     }
@@ -252,11 +253,11 @@ Request_Body_Form.field :: (form: &Request_Body_Form, $type: type_expr, field: s
     field_value := form.fields->get(field)?;
 
     #if type == str {
-        return field_value;
+        return field_value[0];
 
     } else {
         v: type;
-        if core.conv.parse_any(&v, field_value) {
+        if core.conv.parse_any(&v, field_value[0]) {
             return v;
         }
 

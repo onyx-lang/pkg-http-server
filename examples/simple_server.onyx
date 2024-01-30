@@ -1,5 +1,3 @@
-#load "core/std"
-
 #load_path "./lib"
 #load "module"
 
@@ -203,5 +201,5 @@ main :: () {
     app->pipe(&logger);
 
     tcp := http.server.tcp(app, .{ thread_count = 8 });
-    tcp->serve(8080);
+    tcp->serve(8082);
 }

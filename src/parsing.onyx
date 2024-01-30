@@ -14,6 +14,20 @@ parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
 }
 
 #package
+parse_url_encoded_key_value_multi :: (dest: &Map(str, [..] str), input: &str) {
+    // @ErrorHandling
+    while !string.empty(*input) {
+        key   := string.read_until(input, #char "=") |> urldecode();
+        string.advance(input);
+        value := string.read_until(input, #char "&") |> urldecode();
+        string.advance(input);
+
+        values := dest->get_ptr_or_create(key);
+        array.push(values, value);
+    }
+}
+
+#package
 parse_header :: #match #local {}
 
 #overload
