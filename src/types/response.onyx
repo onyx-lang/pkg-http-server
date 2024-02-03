@@ -148,7 +148,7 @@ send_response :: (res: &Response, s: &io.Stream) {
     }
 
     for& res.cookies.entries {
-        io.write_format(&w, "Set-Cookie: {}={}\r\n", it.key, it.value);
+        io.write_format(&w, "Set-Cookie: {}={}; Path=/\r\n", it.key, it.value);
     }
 
     io.write(&w, "\r\n");
