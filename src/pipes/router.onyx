@@ -147,7 +147,7 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
         if pack != any_package && pack != it.pack do continue;
 
         pipes := pipeline();
-        for tag: runtime.info.get_tags_for_procedure(it.func) {
+        for tag in runtime.info.get_tags_for_procedure(it.func) {
             if tag.type == middleware {
                 mw := cast(&middleware) tag.data;
                 pipes->add(mw.func);
@@ -156,7 +156,7 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
 
         pipes->add(*cast(&HTTP_Handler) &it.func);
 
-        for tag: runtime.info.get_tags_for_procedure(it.func) {
+        for tag in runtime.info.get_tags_for_procedure(it.func) {
             if tag.type == route {
                 r := cast(&route) tag.data;
                 router_add_route(router, r.method, r.route, pipes, true);
@@ -176,7 +176,7 @@ pattern_length :: macro (v: Route.Elem) -> i32 {
 #local
 sort_routes :: (router: &Router) {
     core.slice.sort(router.routes, (a, b) => {
-        for i: core.math.min(a.elems.count, b.elems.count) {
+        for i in core.math.min(a.elems.count, b.elems.count) {
             left := a.elems[i];
             right := b.elems[i];
 
@@ -266,11 +266,11 @@ pattern_match_routes :: (expected: [] Route.Elem, actual: [] Route.Elem, variabl
         provided_pattern := it.second.Fixed?;
 
         switch it.first {
-            case expected_pattern: .Fixed {
+            case .Fixed as expected_pattern {
                 if expected_pattern != provided_pattern do return .{ NoMatch = .{} };
             }
 
-            case variable_name: .Variable {
+            case .Variable as variable_name {
                 array.push(variables, .{ variable_name, provided_pattern });
             }
         }

@@ -183,7 +183,7 @@ Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
     form := body->form();
     defer delete(&form.fields);
 
-    for& member: get_type_info(T)->as_struct().members {
+    for& member in get_type_info(T)->as_struct().members {
         field := form.fields[member.name];
         if !field do continue;
 

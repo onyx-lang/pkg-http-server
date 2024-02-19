@@ -18,7 +18,7 @@ HTTP_Method :: enum {
 urlencode :: (s: str, allocator := context.allocator) -> str {
     out := make([..] u8, s.count, allocator=allocator);
 
-    for ch: s do switch ch {
+    for ch in s do switch ch {
         //
         // This list was taken from:
         // https://developer.mozilla.org/en-US/docs/Glossary/percent-encoding
@@ -64,7 +64,7 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
     i := iter.as_iter(s);
     defer iter.close(i);
 
-    for #no_close ch: i {
+    for #no_close ch in i {
         if ch == #char "%" {
             a, e  := iter.take_one(i, no_close=true);
             b, e~ := iter.take_one(i, no_close=true);

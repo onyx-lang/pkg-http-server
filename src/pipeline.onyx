@@ -57,7 +57,9 @@ pipeline_process :: (p: &Pipeline, req: &Request, res: &Response) {
 }
 
 
-Pipeable :: interface (t: $T) {
+Pipeable :: interface (T: type_expr) {
+    t as T;
+
     { as_pipe(t) } -> Pipe;
 
     as_pipe :: #match {}

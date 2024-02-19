@@ -36,7 +36,7 @@ tcp :: (pipeline: Pipeline, settings := TCP_Server_Settings.{}) -> &TCP_Server {
     sync.mutex_init(&server.ready_mutex);
     array.init(&server.ready_clients, 4, long_term_allocator);
 
-    for& t: threads {
+    for& t in threads {
         thread.spawn(t, server, tcp_server_thread);
     }
 
