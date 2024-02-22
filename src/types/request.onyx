@@ -117,8 +117,8 @@ Request_Body.is_json :: (body: &Request_Body) -> bool {
 
     if content_type == "application/json" do return true;
 
-    if string.starts_with(content_type, "application/")
-        && string.ends_with(content_type, "+json") do return true;
+    if  string.starts_with(content_type, "application/") &&
+        string.ends_with(content_type, "+json") do return true;
     
     return false;
 }
@@ -149,8 +149,8 @@ Request_Body.json_as :: macro (body: &Request_Body, $T: type_expr) -> T {
 Request_Body.is_form :: (body: &Request_Body) -> bool {
     content_type := body.request.headers["content-type"] ?? "";
     content_type  = string.read_until(&content_type, ";");
-    return content_type == "application/x-www-form-urlencoded"
-        || content_type == "multipart/form-data";
+    return content_type == "application/x-www-form-urlencoded" ||
+           content_type == "multipart/form-data";
 }
 
 #inject

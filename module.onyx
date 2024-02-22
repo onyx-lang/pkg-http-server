@@ -17,8 +17,8 @@ package http.server
 }
 
 use runtime
-#if    (runtime.runtime == .Onyx)
-    || (runtime.runtime == .Wasi && #defined(runtime.vars.WASIX))
+#if (runtime.runtime == .Onyx) ||
+    (runtime.runtime == .Wasi && #defined(runtime.vars.WASIX))
 {
     #package net :: core.net
     #package thread :: core.thread
