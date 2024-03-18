@@ -93,6 +93,8 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
             }
         }
     }
+
+    return .Success;
 }
 
 #local
