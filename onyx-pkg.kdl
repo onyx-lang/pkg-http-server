@@ -11,3 +11,10 @@ config {
     dependency_binary_path "./bin" 
 }
 
+lsp {
+    mode "project" 
+    source_files "./examples/simple_server.onyx" 
+    include_dirs "" 
+    working_dir "." 
+}
+

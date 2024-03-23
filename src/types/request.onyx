@@ -3,6 +3,7 @@ package http.server
 use runtime
 use core.encoding.json
 use core.memory
+use core.net
 
 Request :: struct {
     method: HTTP_Method;
@@ -18,6 +19,9 @@ Request :: struct {
     query:      Map(str, str);
     cookies:    Map(str, str);
     url_params: Map(str, str);
+
+     // This is only set when the TCP host is used.
+    client: &net.TCP_Server.Client;
 
     address: Request_Address;
 

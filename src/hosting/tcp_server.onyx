@@ -121,7 +121,7 @@ outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
     use_gc_allocator_in_current_scope(&session_gc);
     defer alloc.clear_temp_allocator();
 
-    if !handle_request(tcp, &client.address, &client.socket) {
+    if !handle_request(tcp, client) {
         // Close the connection if we failed to read the request.
         io.stream_write(&client.socket, "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n");
         tcp.server->kill_client(client);
@@ -132,16 +132,13 @@ outer_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
 }
 
 #local
-handle_request :: (tcp: &TCP_Server, req_address: &net.SocketAddress, s: &net.Socket) -> bool {
-    req := Request.{ address = .{ req_address->addr_as_str() } };
-    defer request_free(&req);
-
+handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) -> bool {
     // If the stream is no longer set up correctly, abandon it.
-    if !s.alive || s.vtable == null {
+    if !client.socket.alive || client.socket.vtable == null {
         return false;
     }
 
-    reader := io.reader_make(s);
+    reader := io.reader_make(&client.socket);
     defer io.reader_free(&reader);
 
     //
@@ -154,6 +151,12 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.SocketAddress, s: &net.So
     // then the TCP server will just say that the client is ready
     // to be read from again.
     while #bottom_test io.reader_get_buffered(&reader) > 0 {
+        req := Request.{
+            client  = client,
+            address = .{ client.address->addr_as_str() }
+        };
+        defer request_free(&req);
+
         if !parse_request(&req, &reader) {
             return false;
         }
@@ -173,7 +176,7 @@ handle_request :: (tcp: &TCP_Server, req_address: &net.SocketAddress, s: &net.So
 
         response_finalize(&res);
 
-        send_response(&res, s);
+        send_response(&res, &client.socket);
     }
 
     return true;
