@@ -162,7 +162,7 @@ inner_handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) -> bo
     while #bottom_test io.reader_get_buffered(&reader) > 0 {
         req := Request.{
             client  = client,
-            address = .{ client_addr }
+            address = .{ client_addr->addr_as_str() }
         };
         defer request_free(&req);
 
