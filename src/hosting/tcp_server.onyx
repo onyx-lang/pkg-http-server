@@ -117,6 +117,10 @@ tcp_server_thread :: (tcp: &TCP_Server) {
 #local
 handle_request :: (tcp: &TCP_Server, client: &net.TCP_Server.Client) {
     if !inner_handle_request(tcp, client) {
+        if !client.socket.alive || client.socket.vtable == null {
+            return;
+        }
+
         // Close the connection if we failed to read the request.
         io.stream_write(&client.socket, "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n");
         tcp.server->kill_client(client);
