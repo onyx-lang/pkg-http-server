@@ -4,9 +4,9 @@ package http.server
 parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
     // @ErrorHandling
     while !string.empty(*input) {
-        key   := string.read_until(input, #char "=") |> urldecode();
+        key   := string.read_until(input, '=') |> urldecode();
         string.advance(input);
-        value := string.read_until(input, #char "&") |> urldecode();
+        value := string.read_until(input, '&') |> urldecode();
         string.advance(input);
 
         dest->put(key, value);
@@ -17,9 +17,9 @@ parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
 parse_url_encoded_key_value_multi :: (dest: &Map(str, [..] str), input: &str) {
     // @ErrorHandling
     while !string.empty(*input) {
-        key   := string.read_until(input, #char "=") |> urldecode();
+        key   := string.read_until(input, '=') |> urldecode();
         string.advance(input);
-        value := string.read_until(input, #char "&") |> urldecode();
+        value := string.read_until(input, '&') |> urldecode();
         string.advance(input);
 
         values := dest->get_ptr_or_create(key);
@@ -40,10 +40,10 @@ parse_header :: (r: &io.Reader) -> (str, str) {
 
 #overload
 parse_header :: (line: &str) -> (str, str) {
-    l := string.read_until(line, #char "\n");
+    l := string.read_until(line, '\n');
     string.advance_line(line);
 
-    header := string.read_until(&l, #char ":");
+    header := string.read_until(&l, ':');
     string.advance(&l, 2);
 
     // Remove the \r\n that occurs at the end of the value.
@@ -65,7 +65,7 @@ parse_cookies :: (line: str, m: &Map(str, str)) {
         pair := string.read_until(&value, "; ");
         if pair.count == 0 do break;
 
-        k, v := string.bisect(pair, #char "=");
+        k, v := string.bisect(pair, '=');
         m->put(k, v);
 
         string.advance(&value, 2);

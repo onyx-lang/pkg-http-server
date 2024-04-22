@@ -111,7 +111,7 @@ require_logon :: (req: &Req, res: &Res) {
             creds := core.encoding.base64.decode(auth);
             defer delete(&creds);
 
-            user, pass := core.string.bisect(creds, #char ":");
+            user, pass := core.string.bisect(creds, ':');
             core.printf("User: {}\nPass: {}\n", user, pass);
 
             res->redirect("/");
