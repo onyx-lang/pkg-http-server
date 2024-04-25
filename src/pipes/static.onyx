@@ -20,7 +20,8 @@ static_file_router_handle :: (sf: &Static_File_Router, req: &Request, res: &Resp
     file_path := req.endpoint[sf.base_route.count .. req.endpoint.count];
     full_path := core.tprintf("{}{}", sf.base_path, file_path);
 
-    if !os.file_exists(full_path) || !os.is_file(full_path) {
+    stat: os.FileStat
+    if !os.file_stat(full_path, &stat) || !os.is_file(full_path) {
         res->status(404);
         res->end();
         return;
@@ -30,6 +31,7 @@ static_file_router_handle :: (sf: &Static_File_Router, req: &Request, res: &Resp
 
     res->status(200);
     res.headers["Cache-Control"] = core.tprintf("max-age={};", sf.cache_duration);
+    res.headers["Last-Modified"] = time.gmtime(stat.modified_time / 1000)->format("%a, %d %b %Y %H:%M:%S GMT")
     res->body(guess_mime_type(full_path), contents);
     res->end();
 }

@@ -16,19 +16,21 @@ This allows for maximum composability of existing pieces of
 code. Here is an example.
 
 ```onyx
+use http.server
 
 main :: () {
-    app := http.application();
+    pipeline := server.pipeline();
 
-    app->pipe((req, res) => {
+    pipeline->pipe((req, res) => {
         printf("{} was requested!\n", req.base_endpoint);
     });
 
-    app->pipe((req, res) => {
+    pipeline->pipe((req, res) => {
         res->status(200);
         res->html("Working!");
     });
 
+    app := server.tcp(&pipeline);
     app->serve(8080);
 }
 
@@ -39,15 +41,10 @@ pipes. The first pipe simply prints out the endpoint that was
 requested. The second pipe responds to the event with a status
 of 200, and the HTML text of "Working!".
 
-An http.Application is simply a wrapper around the TCP server
-that handle connections for the server, and the master pipeline
-that every request is fed through. You can also directly create
-a pipeline and add handlers to it, then use that pipeline later.
-
 ```onyx
 
 pipelines :: () {
-    pipeline := http.pipeline();
+    pipeline := http.server.pipeline();
 
     pipeline->add((req, res) => {
         // ...
@@ -85,12 +82,11 @@ that send the request to another pipeline. Here is a simple example
 of a router.
 
 ```onyx
+use http
 
 // A typical HTTP application
 main :: () {
-    app := http.application();
-
-    router := http.router();
+    router := http.server.router();
 
     // You can specify the HTTP Method using the enum value.
     router->route(.GET, "/index", (req, res) => {
@@ -104,7 +100,7 @@ main :: () {
         res->html("Test");  
     });
 
-    app->pipe(^router);
+    app := http.server.tcp(&router);
     app->serve(8080);
 }
 
@@ -113,7 +109,7 @@ main :: () {
 The code above should be relatively simple if you have worked with
 a modern HTTP server framework before. The only "gotcha" in the code
 would be that you have to pass a pointer to a router, and not the
-router directly to app->pipe(). Otherwise, this looks like it could
+router directly to app->add(). Otherwise, this looks like it could
 be PHP.
 
 
@@ -136,7 +132,8 @@ respectively.
 // This prevents you from having to type
 // http.Request and http.Response over and
 // over again...
-use http {
+use http.server {
+    package,
     Req :: Request,
     Res :: Response,
 }
@@ -148,31 +145,11 @@ use http {
 }
 
 main :: () {
-    app := http.application();
-
-    router := http.router();
+    router := server.router();
     router->collect_routes();
 
-    app->pipe(^router);
+    app := server.tcp(&router);
     app->serve(8080);
 }
 
 ```
-
-One issue you might already be thinking of is that the router will collect
-ALL of the routes in the binary. What if you want to use sub-routers?
-
-As a half-assed solution to this problem, collect_routes only collects routes
-with tags that are in the same group, which by default is "". You can set
-the tag's group to any string that you want. This is not perfect, and does
-clutter the code a little bit, but suffices for now.
-
-```onyx
-
-#tag http.route.{.GET, "/", group="foo"}
-//...
-
-router->collect_routes(group="foo");
-
-```
-
