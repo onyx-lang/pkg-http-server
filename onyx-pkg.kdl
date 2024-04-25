@@ -3,7 +3,7 @@ package {
     author "Brendan Hansen" 
     url "git://onyxlang.io/repo/http-server" 
     description "A HTTP/1.1 server implemented in Onyx" 
-    version "0.3.7" 
+    version "0.3.8" 
 }
 
 config {
