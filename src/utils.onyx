@@ -46,7 +46,7 @@ urlencode :: (s: str, allocator := context.allocator) -> str {
         match(' ', "%20");
         match('"', "%22");
 
-        case #default do out << ch;
+        case _ do out << ch;
 
         match :: macro (from: u8, to: str) {
             //
@@ -114,7 +114,7 @@ urldecode :: (s: str, allocator := context.allocator) -> str {
 
 #package known_mimetypes: Map(str, str);
 guess_mime_type :: (filename: str) -> str {
-    extension := filename[string.last_index_of(filename, '.')+1 .. filename.count];
+    extension := filename[str.last_index_of(filename, '.')+1 .. filename.count];
 
     known_mimetypes->get(extension)->with([mimetype] {
         return mimetype;
@@ -137,7 +137,7 @@ guess_mime_type :: (filename: str) -> str {
         case "jpg", "jpeg"  do return "image/jpeg";
         case "png"          do return "image/png";
 
-        case #default do return "application/text";
+        case _ do return "application/text";
     }
 }
 

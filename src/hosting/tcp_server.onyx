@@ -34,7 +34,7 @@ tcp :: (pipeline: Pipeline, settings := TCP_Server_Settings.{}) -> &TCP_Server {
 
     sync.condition_init(&server.ready_condvar);
     sync.mutex_init(&server.ready_mutex);
-    array.init(&server.ready_clients, 4, long_term_allocator);
+    Array.init(&server.ready_clients, 4, long_term_allocator);
 
     for& t in threads {
         thread.spawn(t, server, tcp_server_thread);
@@ -87,7 +87,7 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
             } else {
                 sync.critical_section(&tcp.ready_mutex) {
-                    array.push(&tcp.ready_clients, ready_client);
+                    Array.push(&tcp.ready_clients, ready_client);
                     sync.condition_broadcast(&tcp.ready_condvar);
                 }
             }
@@ -99,7 +99,7 @@ TCP_Server.serve :: (tcp: &TCP_Server, port: u32) -> Serve_Status {
 
 #local
 tcp_server_thread :: (tcp: &TCP_Server) {
-    client: #auto;
+    client: _;
     while true {
         sync.critical_section(&tcp.ready_mutex) {
             while (tcp.ready_clients.length == 0) {
@@ -107,7 +107,7 @@ tcp_server_thread :: (tcp: &TCP_Server) {
             }
 
             client = tcp.ready_clients[0];
-            array.delete(&tcp.ready_clients, 0);
+            Array.delete(&tcp.ready_clients, 0);
         }
 
         handle_request(tcp, client);
@@ -223,23 +223,23 @@ parse_request :: (req: &Request, r: &io.Reader) -> bool {
         request_line := r->read_line();
         if request_line.length == 0 do return false;
 
-        method := string.read_until(&request_line, ' ');
-        string.advance(&request_line);
+        method := str.read_until(&request_line, ' ');
+        str.advance(&request_line);
 
-        m := core.array.first(runtime.info.enum_values(HTTP_Method), [v](v.name == method));
+        m := Array.first(runtime.info.enum_values(HTTP_Method), [v](v.name == method));
         if m == null do req.method = .UNKNOWN;
         else         do req.method = ~~m.value;
 
-        route := string.read_until(&request_line, ' ');
-        string.advance(&request_line);
+        route := str.read_until(&request_line, ' ');
+        str.advance(&request_line);
 
-        if string.starts_with(route, "http://") || string.starts_with(route, "https://") {
-            string.read_until(&route, "/", 2);
+        if str.starts_with(route, "http://") || str.starts_with(route, "https://") {
+            str.read_until(&route, "/", 2);
         }
 
-        req.endpoint = string.read_until(&route, '?');
+        req.endpoint = str.read_until(&route, '?');
         req._processed_endpoint = process_url_to_route_elems(req.endpoint);
-        string.advance(&route);
+        str.advance(&route);
 
         parse_url_encoded_key_value(&req.query, &route);
     }

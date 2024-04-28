@@ -6,7 +6,7 @@ cors :: struct {
 
 #local
 cors_handler :: (c: &cors, req: &Request, res: &Response) {
-    origins := string.join(c.allowed_origins, ", ") if c.allowed_origins else "*";
+    origins := str.join(c.allowed_origins, ", ") if c.allowed_origins else "*";
     res.headers["Access-Control-Allow-Origin"] = origins;
     res.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS";
 

@@ -48,8 +48,8 @@ make_request_from_env :: () -> Request {
     req.address.ip = env["REMOTE_ADDR"] ?? "";
 
     for iter.as_iter(env) {
-        if string.starts_with(it.key, "HTTP_") {
-            req.headers->put(string.advance(it.key, "HTTP_".count), it.value);
+        if str.starts_with(it.key, "HTTP_") {
+            req.headers->put(str.advance(it.key, "HTTP_".count), it.value);
         }
     }
 

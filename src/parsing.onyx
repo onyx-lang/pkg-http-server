@@ -3,11 +3,11 @@ package http.server
 #package
 parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
     // @ErrorHandling
-    while !string.empty(*input) {
-        key   := string.read_until(input, '=') |> urldecode();
-        string.advance(input);
-        value := string.read_until(input, '&') |> urldecode();
-        string.advance(input);
+    while !str.empty(*input) {
+        key   := str.read_until(input, '=') |> urldecode();
+        str.advance(input);
+        value := str.read_until(input, '&') |> urldecode();
+        str.advance(input);
 
         dest->put(key, value);
     }
@@ -16,14 +16,14 @@ parse_url_encoded_key_value :: (dest: &Map(str, str), input: &str) {
 #package
 parse_url_encoded_key_value_multi :: (dest: &Map(str, [..] str), input: &str) {
     // @ErrorHandling
-    while !string.empty(*input) {
-        key   := string.read_until(input, '=') |> urldecode();
-        string.advance(input);
-        value := string.read_until(input, '&') |> urldecode();
-        string.advance(input);
+    while !str.empty(*input) {
+        key   := str.read_until(input, '=') |> urldecode();
+        str.advance(input);
+        value := str.read_until(input, '&') |> urldecode();
+        str.advance(input);
 
         values := dest->get_ptr_or_create(key);
-        array.push(values, value);
+        Array.push(values, value);
     }
 }
 
@@ -40,17 +40,17 @@ parse_header :: (r: &io.Reader) -> (str, str) {
 
 #overload
 parse_header :: (line: &str) -> (str, str) {
-    l := string.read_until(line, '\n');
-    string.advance_line(line);
+    l := str.read_until(line, '\n');
+    str.advance_line(line);
 
-    header := string.read_until(&l, ':');
-    string.advance(&l, 2);
+    header := str.read_until(&l, ':');
+    str.advance(&l, 2);
 
     // Remove the \r\n that occurs at the end of the value.
     value := l;
-    string.strip_trailing_whitespace(&value);
+    str.strip_trailing_whitespace(&value);
 
-    header = string.to_lowercase(header);
+    header = str.to_lowercase(header);
 
     return header, value;
 }
@@ -62,13 +62,13 @@ parse_cookies :: #match #local {}
 parse_cookies :: (line: str, m: &Map(str, str)) {
     value := line;
     while true {
-        pair := string.read_until(&value, "; ");
+        pair := str.read_until(&value, "; ");
         if pair.count == 0 do break;
 
-        k, v := string.bisect(pair, '=');
+        k, v := str.bisect(pair, '=');
         m->put(k, v);
 
-        string.advance(&value, 2);
+        str.advance(&value, 2);
     }
 }
 

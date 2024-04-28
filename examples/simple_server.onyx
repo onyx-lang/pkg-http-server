@@ -105,13 +105,13 @@ require_logon :: (req: &Req, res: &Res) {
     if req.headers->has("authorization") {
         auth := req.headers["authorization"] ?? "";
 
-        if core.string.starts_with(auth, "Basic ") {
-            core.string.advance(&auth, "Basic ".length);
+        if str.starts_with(auth, "Basic ") {
+            str.advance(&auth, "Basic ".length);
 
             creds := core.encoding.base64.decode(auth);
             defer delete(&creds);
 
-            user, pass := core.string.bisect(creds, ':');
+            user, pass := str.bisect(creds, ':');
             core.printf("User: {}\nPass: {}\n", user, pass);
 
             res->redirect("/");

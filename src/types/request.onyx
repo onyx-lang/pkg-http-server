@@ -121,8 +121,8 @@ Request_Body.is_json :: (body: &Request_Body) -> bool {
 
     if content_type == "application/json" do return true;
 
-    if  string.starts_with(content_type, "application/") &&
-        string.ends_with(content_type, "+json") do return true;
+    if  str.starts_with(content_type, "application/") &&
+        str.ends_with(content_type, "+json") do return true;
     
     return false;
 }
@@ -152,7 +152,7 @@ Request_Body.json_as :: macro (body: &Request_Body, $T: type_expr) -> T {
 #inject
 Request_Body.is_form :: (body: &Request_Body) -> bool {
     content_type := body.request.headers["content-type"] ?? "";
-    content_type  = string.read_until(&content_type, ";");
+    content_type  = str.read_until(&content_type, ";");
     return content_type == "application/x-www-form-urlencoded" ||
            content_type == "multipart/form-data";
 }
@@ -162,7 +162,7 @@ Request_Body.form :: (body: &Request_Body) -> Request_Body_Form {
     out := make(Map(str, [..] str));
 
     content_type := body.request.headers["content-type"] ?? "";
-    content_type  = string.read_until(&content_type, ";");
+    content_type  = str.read_until(&content_type, ";");
 
     switch content_type {
         case "application/x-www-form-urlencoded" {
@@ -205,10 +205,10 @@ Request_Body.form_into :: (body: &Request_Body, $T: type_expr) -> T {
 
 #package
 parse_multipart_form_data :: (r: &Request, dest: &Map(str, [..] str)) {
-    _, boundary_map := string.bisect(r.headers["content-type"] ?? "", ';');
-    key, value      := string.bisect(boundary_map, '=');
-    string.strip_leading_whitespace(&key);
-    string.strip_leading_whitespace(&value);
+    _, boundary_map := str.bisect(r.headers["content-type"] ?? "", ';');
+    key, value      := str.bisect(boundary_map, '=');
+    str.strip_leading_whitespace(&key);
+    str.strip_leading_whitespace(&value);
 
     if key != "boundary" {
         return;
@@ -224,34 +224,34 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, [..] str)) {
 
     content := r.body->raw();
     while true {
-        line := string.read_until(&content, '\n');
-        string.advance(&content, 1);
+        line := str.read_until(&content, '\n');
+        str.advance(&content, 1);
         if content.length == 0 do break;
 
         part_name := "";
-        while !string.starts_with(content, "\r\n") {
+        while !str.starts_with(content, "\r\n") {
             key, value := parse_header(&content);
 
             if key == "content-disposition" {
-                string.strip_leading_whitespace(&value);
-                if !string.starts_with(value, "form-data;") do continue;
-                string.advance(&value, "form-data;".length);
+                str.strip_leading_whitespace(&value);
+                if !str.starts_with(value, "form-data;") do continue;
+                str.advance(&value, "form-data;".length);
 
-                string.strip_leading_whitespace(&value);
-                if !string.starts_with(value, "name=\"") do continue;
-                string.advance(&value, "name=\"".length);
+                str.strip_leading_whitespace(&value);
+                if !str.starts_with(value, "name=\"") do continue;
+                str.advance(&value, "name=\"".length);
 
-                part_name = string.read_until(&value, '"');
+                part_name = str.read_until(&value, '"');
             }
         }
 
-        part_value := string.read_until(&content, core.tprintf("\r\n--{}", boundary))
-                      |> string.strip_leading_whitespace();
+        part_value := str.read_until(&content, core.tprintf("\r\n--{}", boundary))
+                      |> str.strip_leading_whitespace();
 
         values := dest->get_ptr_or_create(key);
-        array.push(values, value);
+        Array.push(values, value);
 
-        string.advance_line(&content);
+        str.advance_line(&content);
     }
 }
 

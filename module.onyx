@@ -5,7 +5,6 @@ package http.server
 
     core   :: core
     alloc  :: core.alloc
-    string :: core.string
     io     :: core.io
     os     :: core.os
     arena  :: core.alloc.arena
@@ -13,7 +12,6 @@ package http.server
     conv   :: core.conv
     time   :: core.time
     sync   :: core.sync
-    array  :: core.array
 }
 
 use runtime

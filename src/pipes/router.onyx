@@ -2,7 +2,6 @@ package http.server
 
 use runtime
 use core {tprintf}
-use core.array
 
 Router :: struct {
     routes: [..] Route;
@@ -175,7 +174,7 @@ pattern_length :: macro (v: Route.Elem) -> i32 {
 
 #local
 sort_routes :: (router: &Router) {
-    core.slice.sort(router.routes, (a, b) => {
+    Slice.sort(router.routes, (a, b) => {
         for i in core.math.min(a.elems.count, b.elems.count) {
             left := a.elems[i];
             right := b.elems[i];
@@ -208,7 +207,7 @@ sort_routes :: (router: &Router) {
 
 #package
 router_route_request :: (router: &Router, req: &Request, res: &Response) {
-    if !string.starts_with(req.endpoint, router.base_path) {
+    if !str.starts_with(req.endpoint, router.base_path) {
         return;
     }
 
@@ -221,7 +220,7 @@ router_route_request :: (router: &Router, req: &Request, res: &Response) {
     
     for& router.routes {
         if it.method != .ALL && it.method != req.method do continue;
-        core.array.clear(&tmp_url_params);
+        Array.clear(&tmp_url_params);
 
         matched_parts := pattern_match_routes(it.elems, req._processed_endpoint, &tmp_url_params).Matched;
         if !matched_parts do continue;
@@ -271,7 +270,7 @@ pattern_match_routes :: (expected: [] Route.Elem, actual: [] Route.Elem, variabl
             }
 
             case .Variable as variable_name {
-                array.push(variables, .{ variable_name, provided_pattern });
+                Array.push(variables, .{ variable_name, provided_pattern });
             }
         }
 
@@ -298,13 +297,13 @@ process_url_to_route_elems :: (s: str) -> [] Route.Elem {
         return .{};
     }
 
-    elem_count := core.slice.count_where(s, [c](c == '/'));
+    elem_count := Slice.count_where(s, [c](c == '/'));
     elems := make([..] Route.Elem, elem_count, long_term_allocator);
 
-    for core.string.split_iter(s, '/')->skip(1) {
+    for str.split_iter(s, '/')->skip(1) {
         pattern := it;
         if it[0] == ':' {
-            string.advance(&pattern);
+            str.advance(&pattern);
             elems << .{ Variable = pattern };
         } else {
             elems << .{ Fixed = pattern };

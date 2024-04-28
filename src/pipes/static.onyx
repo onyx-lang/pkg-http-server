@@ -15,7 +15,7 @@ static :: (route, path: str, cache_duration := 3600) -> Static_File_Router {
 
 #package
 static_file_router_handle :: (sf: &Static_File_Router, req: &Request, res: &Response) {
-    if !string.starts_with(req.endpoint, sf.base_route) do return;
+    if !str.starts_with(req.endpoint, sf.base_route) do return;
 
     file_path := req.endpoint[sf.base_route.count .. req.endpoint.count];
     full_path := core.tprintf("{}{}", sf.base_path, file_path);
