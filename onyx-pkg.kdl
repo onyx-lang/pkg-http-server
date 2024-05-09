@@ -18,3 +18,10 @@ lsp {
     working_dir "." 
 }
 
+build {
+    default {
+        target "./static/server.wasm" 
+        source "./server.onyx" 
+    }
+}
+

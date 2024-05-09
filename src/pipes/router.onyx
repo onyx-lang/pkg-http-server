@@ -68,7 +68,7 @@ router_add_route :: #match #local {}
 // correct behavior and may be due to an underlying compiler
 // bug. Either way, for now this overload has to be here.
 #overload
-router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: HTTP_Handler) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: HTTP_Handler) -> Router {
     pipes := pipeline();
     pipes->add(handle);
 
@@ -80,10 +80,11 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: H
     };
 
     sort_routes(router);
+    return *router
 }
 
 #overload
-router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pipeline: Pipeline, match_all := false) {
+router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pipeline: Pipeline, match_all := false) -> Router {
     Route :: Route
     router.routes << Route.{
         method = method,
@@ -94,15 +95,19 @@ router_add_route :: macro (router: &Router, method: HTTP_Method, route: str, pip
 
     sort_routes :: sort_routes
     sort_routes(router);
+
+    return *router;
 }
 
 #overload
-router_add_route :: macro (router: &Router, route: str, handle: $T/Pipeable) {
+router_add_route :: macro (router: &Router, route: str, handle: $T/Pipeable) -> Router {
     router->route(.ALL, route, handle);
+
+    return *router;
 }
 
 #overload
-router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: $T/Pipeable) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: $T/Pipeable) -> Router {
     pipes := pipeline();
     pipes->add(handle);
 
@@ -115,10 +120,12 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, handle: $
 
     sort_routes :: sort_routes
     sort_routes(router);
+
+    return *router;
 }
 
 #overload
-router_add_route :: (router: &Router, method: HTTP_Method, route: str, steps: ..Pipe) {
+router_add_route :: (router: &Router, method: HTTP_Method, route: str, steps: ..Pipe) -> Router {
     pipes := pipeline();
     for steps do pipes->add(it);
 
@@ -131,16 +138,19 @@ router_add_route :: (router: &Router, method: HTTP_Method, route: str, steps: ..
 
     sort_routes :: sort_routes
     sort_routes(router);
+
+    return *router;
 }
 
 
 #local
-__quick_route :: (router: &Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) {
+__quick_route :: (router: &Router, $method: HTTP_Method, route: str, handle: HTTP_Handler) -> &Router {
     router_add_route(router, method, route, handle);
+    return router;
 }
 
 #package
-router_collect_routes :: (router: &Router, pack := builtin.any_package) {
+router_collect_routes :: (router: &Router, pack := builtin.any_package) -> Router {
     procs := runtime.info.get_procedures_with_tag(route);
     for procs {
         if pack != any_package && pack != it.pack do continue;
@@ -162,6 +172,7 @@ router_collect_routes :: (router: &Router, pack := builtin.any_package) {
             }
         }
     }
+    return *router;
 }
 
 #local
@@ -173,7 +184,7 @@ pattern_length :: macro (v: Route.Elem) -> i32 {
 }
 
 #local
-sort_routes :: (router: &Router) {
+sort_routes :: (router: &Router) -> Router {
     Slice.sort(router.routes, (a, b) => {
         for i in core.math.min(a.elems.count, b.elems.count) {
             left := a.elems[i];
@@ -202,6 +213,7 @@ sort_routes :: (router: &Router) {
 
         return b.elems.count - a.elems.count;
     });
+    return *router
 }
 
 

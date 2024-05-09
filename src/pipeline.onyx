@@ -23,28 +23,32 @@ pipeline :: () -> Pipeline {
 }
 
 #package
-pipeline_free :: (p: &Pipeline) {
+pipeline_free :: (p: &Pipeline) -> &Pipeline {
     delete(&p.steps);
+    return p
 }
 
 #package
 pipeline_add_step :: #match #local {}
 
 #overload
-pipeline_add_step :: (p: &Pipeline, s: HTTP_Handler) {
+pipeline_add_step :: (p: &Pipeline, s: HTTP_Handler) -> &Pipeline {
     step := Pipeable.as_pipe(s);
     p.steps << step;
+    return p
 }
 
 #overload
-pipeline_add_step :: (p: &Pipeline, s: $T/Pipeable) {
+pipeline_add_step :: (p: &Pipeline, s: $T/Pipeable) -> &Pipeline {
     step := Pipeable.as_pipe(s);
     p.steps << step;
+    return p
 }
 
 #overload
-pipeline_add_step :: (p: &Pipeline, pipe: Pipe) {
+pipeline_add_step :: (p: &Pipeline, pipe: Pipe) -> &Pipeline {
     p.steps << pipe;
+    return p
 }
 
 #package
@@ -54,6 +58,7 @@ pipeline_process :: (p: &Pipeline, req: &Request, res: &Response) {
             it.handler(it.data, req, res);
         }
     }
+    return;
 }
 
 
