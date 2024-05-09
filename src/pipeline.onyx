@@ -23,9 +23,9 @@ pipeline :: () -> Pipeline {
 }
 
 #package
-pipeline_free :: (p: &Pipeline) -> Pipeline {
+pipeline_free :: (p: &Pipeline) -> &Pipeline {
     delete(&p.steps);
-    return *p
+    return p
 }
 
 #package
