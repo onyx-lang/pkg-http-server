@@ -220,13 +220,14 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, [..] str)) {
         boundary = value[1 .. value.length - 1];
     }
 
-    boundary_delimiter := core.tprintf("--{}\r\n", boundary);
+    boundary_delimiter := core.tprintf("--{}", boundary);
 
-    content := r.body->raw();
-    while true {
-        line := str.read_until(&content, '\n');
+    content := r.body->raw()
+    while content.length > 0 {
+        str.read_until(&content, '\n');
         str.advance(&content, 1);
-        if content.length == 0 do break;
+
+        if content.length == 0 do break
 
         part_name := "";
         while !str.starts_with(content, "\r\n") {
@@ -245,13 +246,11 @@ parse_multipart_form_data :: (r: &Request, dest: &Map(str, [..] str)) {
             }
         }
 
-        part_value := str.read_until(&content, core.tprintf("\r\n--{}", boundary))
-                      |> str.strip_leading_whitespace();
+        part_value := str.read_until(&content, boundary_delimiter)
+                      |> str.strip_whitespace();
 
-        values := dest->get_ptr_or_create(key);
-        Array.push(values, value);
-
-        str.advance_line(&content);
+        values := dest->get_ptr_or_create(part_name);
+        Array.push(values, part_value);
     }
 }
 
